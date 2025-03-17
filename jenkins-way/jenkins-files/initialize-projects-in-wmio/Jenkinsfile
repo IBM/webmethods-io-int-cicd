@@ -1,0 +1,172 @@
+pipeline {
+    agent any
+
+    environment {
+        DEV_TENANT_URL = ''  //URL of the wm.io tenant dev environment
+        TEST_TEST_URL = ''  //URL of the wm.io tenant test environment
+        PROD_TENANT_URL = ''  //URL of the wm.io tenant prod  environment
+        repoName = ''    //Repository Name i.e. the project name of your assests in wm.io. This is same as what is created in github
+        debug = ''       //Enable Debug Mode by passing value "debug"
+        WMIO_TENANTS_CREDS = credentials('wmiotenantcreds') 
+       // wmio tenants credentials object created in jenkins creds store that has necessary access to all the env, if you have different credentials ( ideally you would have - this is POC only) for different tenants, please create the secrets accodingly.
+       // WMIO_PROJECT_REPO_CREDS = credentials('githubpat')  // git hub credentials for downloading wm.io source code repo
+        
+    }
+
+    parameters {
+        string(name: 'DEV_TENANT_URL', defaultValue: 'presalesemeadev.int-aws-de.webmethods.io', description: 'URL of the wm.io DEV tenant environment')
+        string(name: 'TEST_TENANT_URL', defaultValue: 'presalesemeatest.int-aws-de.webmethods.io', description: 'URL of the wm.io TEST tenant environment')
+        string(name: 'PROD_TENANT_URL', defaultValue: 'presalesemeaprod.int-aws-de.webmethods.io', description: 'URL of the wm.io PROD tenant environment')
+        string(name: 'repoName', defaultValue: 'aditya_demo_projectA', description: 'Repository Name i.e. the project name of your assests in wm.io')
+        string(name: 'debug', defaultValue: 'no-debug', description: 'Enable Debug Mode by passing value "debug"')
+        string(name: 'env', defaultValue: 'DEV', description: 'env of the wm.io tenant environment')
+    }
+       
+    stages {
+
+     
+       stage('Validate Parameters') {
+            steps {
+                script {
+                    if (params.DEV_TENANT_URL == '') {
+                        error "Missing template parameter DEV_TENANT_URL"
+                    }
+                      if (params.TEST_TENANT_URL == '') {
+                        error "Missing template parameter TEST_TENANT_URL"
+                    }
+                      if (params.PROD_TENANT_URL == '') {
+                        error "Missing template parameter PROD_TENANT_URL"
+                    }
+                    if (params.repoName == '') {
+                        error "Missing template parameter repoName"
+                    }
+                    debug = params.debug
+                    if (debug == 'debug') {
+                        echo "......Running in Debug mode ......"
+                    }
+                }
+            }
+        } 
+
+
+        stage('list assets') {
+            steps {
+                echo "<<<<<<<<<<<<<<<<<<<<<<<<<-------------Listing the checkedout the code from git repo------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                  sh """
+                  echo "<<<------------------see details below------------------------------------------------------->>>"
+                  pwd
+                  ls -lrt
+                  echo "The workspace path is: ${env.WORKSPACE}"
+                    """     
+                 echo "<<<<<<<<<<<<<<<<<<<<<<<<-------------assets list finished------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"    
+            }
+        }
+
+        stage('Check Project Exists in DEV tenant') {
+            steps {
+                script {
+                    PROJECT_URL = "https://${params.DEV_TENANT_URL}/apis/v1/rest/projects/${params.repoName}"
+                    echo "Check Project exists"
+                    def projectExists = sh(script: """
+                        curl --location --request GET ${PROJECT_URL} \
+                            --header 'Accept: application/json' \
+                            -u ${WMIO_TENANTS_CREDS_USR}:${WMIO_TENANTS_CREDS_PSW} | jq -r '.output.name // empty'
+                    """, returnStdout: true).trim()
+
+                    if (projectExists == '') {
+                        echo "Project does not exist."
+                    } else {
+                        echo "Project already exists with name: ${projectExists}"
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+                }
+                     
+        }
+
+        }
+
+        stage('Create Project in DEV') {
+            when {
+                expression {
+                    return currentBuild.result != 'SUCCESS'
+                }
+            }
+            steps {
+                script {
+                    echo "Project does not exist. Creating..."
+                    def json = '{"name": "' + params.repoName + '", "description": "Created by Automated CI for feature branch"}'
+                    def createResponse = sh(script: """
+                        curl --location --request POST https://${params.DEV_TENANT_URL}/apis/v1/rest/projects \
+                            --header 'Content-Type: application/json' \
+                            --header 'Accept: application/json' \
+                            --data-raw '${json}' \
+                            -u ${WMIO_TENANTS_CREDS_USR}:${WMIO_TENANTS_CREDS_PSW}
+                    """, returnStdout: true).trim()
+
+                    def nameCreated = sh(script: "echo '${createResponse}' | jq '.output.name // empty'", returnStdout: true).trim()
+                    if (nameCreated != '') {
+                        echo "Project created successfully: ${createResponse}"
+                    } else {
+                        echo "Project creation failed: ${createResponse}"
+                        currentBuild.result = 'FAILURE'
+                    }                  
+                }
+                sh """                  
+                   chmod +x ./pipelines/scripts/*.sh
+                   mkdir -p ${env.WORKSPACE}/${params.repoName}/assets/flowservices/
+                   cp ./assets/flowservices/SampleFlowService.zip ${env.WORKSPACE}/${params.repoName}/assets/flowservices/
+                   ./pipelines/scripts/importAsset.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "SampleFlowService" "flowservice" ${env.WORKSPACE} "false" ${params.env} debug
+                   ./pipelines/scripts/replicateProject.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} ${params.TEST_TENANT_URL} "443"  ${WMIO_TENANTS_CREDS_USR} "SampleFlowService" debug
+                   ./pipelines/scripts/replicateProject.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} ${params.PROD_TENANT_URL} "443"  ${WMIO_TENANTS_CREDS_USR} "SampleFlowService" debug
+                   ./pipelines/scripts/deleteAssets.sh https://${params.PROD_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "SampleFlowService" "flowservice" "false" debug
+                   ./pipelines/scripts/deleteAssets.sh https://${params.TEST_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "SampleFlowService" "flowservice" "false" debug
+                   ./pipelines/scripts/deleteAssets.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "SampleFlowService" "flowservice" "false" debug
+
+                   """
+            }
+        }
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()  // This cleans the workspace before starting the pipeline
+            }
+        } 
+
+        stage('Check Project Exists in TEST tenant') {
+            steps {
+
+                echo "tests"
+            }
+        }
+
+        stage('Create Project in TEST tenant') {
+            when {
+                expression {
+                    return currentBuild.result != 'SUCCESS'
+                }
+            }
+            steps {
+
+                echo "tests"
+            }
+        } 
+
+
+    
+        
+    }  
+
+    post {
+        failure {
+            echo "Build failed!"
+            cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+        success {
+            echo "Build succeeded!"
+            cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+    }
+}
+
+

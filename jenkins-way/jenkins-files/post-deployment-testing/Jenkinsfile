@@ -1,0 +1,114 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'ENV', defaultValue: 'dev', description: 'Environment (dev or test or qa etc.), this would be same branch name like dev, test etc.')
+        string(name: 'repoName', defaultValue: 'aditya_aditya_demo_myProjectA', description: 'wm.io project Repo name')
+        string(name: 'repoUrl', defaultValue: 'https://github.com/ibm-webmethods/aditya_aditya_demo_myProjectA.git', description: 'wm.io project Repo url')
+    }
+    environment {
+        GITHUB_CREDENTIALS_ID = 'githubpat'   // Jenkins credential ID for GitHub authentication
+        API_CREDENTIALS_ID = 'wmiotenantcreds'      // Jenkins credential ID for API Basic Authentication
+    }
+    stages {
+        stage('Checkout Config Repo') {
+            steps {
+                script {
+                    dir("${params.repoName}") {
+                        checkout([$class: 'GitSCM', 
+                            branches: [[name: "${params.ENV}"]], 
+                            userRemoteConfigs: [[
+                                url: "${params.repoUrl}",
+                                credentialsId: 'githubpat'
+                            ]]
+                        ])
+                    }
+                }
+            }
+        }
+
+        stage('Read Testing config File') {
+            steps {
+                script {
+                    dir("${params.repoName}") {
+
+                        sh "pwd"
+                        sh "ls -lrt"
+
+                        def envConfigFile = "testing/${params.ENV}.json"
+
+                        if (!fileExists(envConfigFile)) {
+                            error "Config file for environment '${params.ENV}' not found: ${envConfigFile}"
+                        }
+
+                        def configContent = readFile(envConfigFile)
+                        def config = readJSON text: configContent
+
+                        if (!config.api_endpoint || !config.request_body || !config.success_response) {
+                            error "Missing required fields in config file: ${envConfigFile}"
+                        }
+
+                        def apiEndpoint = config.api_endpoint
+                        def requestBody = groovy.json.JsonOutput.toJson(config.request_body)
+                        def expectedSuccessResponse = groovy.json.JsonOutput.toJson(config.success_response)
+
+                        echo "Using API Endpoint: ${apiEndpoint}"
+                        echo "Request Body: ${requestBody}"
+                        echo "Expected Success Response: ${expectedSuccessResponse}"
+
+                        env.API_ENDPOINT = apiEndpoint
+                        env.REQUEST_BODY = requestBody
+                        env.EXPECTED_SUCCESS_RESPONSE = expectedSuccessResponse
+                    }
+                }
+            }
+        }
+
+        stage('Run Test') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: env.API_CREDENTIALS_ID, usernameVariable: 'API_USER', passwordVariable: 'API_PASS')]) {
+                        
+                        def authString = "${API_USER}:${API_PASS}".bytes.encodeBase64().toString()
+
+                        def curlCommand = """
+                            curl -s -o response.json -w "%{http_code}" -X POST "${env.API_ENDPOINT}" \\
+                            -H "Content-Type: application/json" \\
+                            -H "Authorization: Basic ${authString}" \\
+                            -d '${env.REQUEST_BODY}'
+                        """
+
+                        echo "Executing API Request with Curl..."
+                        def responseCode = sh(script: curlCommand, returnStdout: true).trim()
+
+                        echo "HTTP Response Code: ${responseCode}"
+                        echo "API Response:"
+                        sh "cat response.json"
+
+                        if (responseCode != "200") {
+                            error "Test Failed  - API returned HTTP ${responseCode}"
+                        }
+
+                        def jsonResponse = readJSON file: "response.json"
+
+                        if (jsonResponse.toString() == env.EXPECTED_SUCCESS_RESPONSE.toString()) {
+                            echo "Test Passed "
+                        } else {
+                            error "Test Failed . Expected: ${env.EXPECTED_SUCCESS_RESPONSE}, but got: ${jsonResponse}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Build failed!"
+           cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+        success {
+            echo "Build succeeded!"
+           cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+    }
+}
