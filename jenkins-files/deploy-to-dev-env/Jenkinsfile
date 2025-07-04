@@ -1,0 +1,164 @@
+pipeline {
+    agent any
+
+    environment {
+        DEV_TENANT_URL = ''  //URL of the wm.io tenant dev environment
+        repoName = ''    //Repository Name i.e. the project name of your assests in wm.io. This is same as what is created in github
+        debug = ''       //Enable Debug Mode by passing value "debug"
+        WMIO_TENANTS_CREDS = credentials('wmiotenantcreds') 
+        GITHUB_TOKEN = credentials('githubpat') 
+       // wmio tenants credentials object created in jenkins creds store that has necessary access to all the env, if you have different credentials ( ideally you would have - this is POC only) for different tenants, please create the secrets accodingly.
+       // WMIO_PROJECT_REPO_CREDS = credentials('githubpat')  // git hub credentials for downloading wm.io source code repo
+        
+    }
+
+    parameters {
+        string(name: 'DEV_TENANT_URL', defaultValue: 'presalesemeadev.int-aws-de.webmethods.io', description: 'URL of the wm.io tenant environment')
+        string(name: 'repoName', defaultValue: 'aditya_demo_projectA', description: 'Repository Name i.e. the project name of your assests in wm.io')
+        string(name: 'repoUrl', defaultValue: 'https://github.com/ibm-webmethods/aditya_demo_projectA.git', description: 'Repository url ')
+        string(name: 'debug', defaultValue: 'no-debug', description: 'Enable Debug Mode by passing value "debug"')
+        string(name: 'env', defaultValue: 'dev', description: 'env of the wm.io tenant environment')
+    }
+       
+    stages {
+
+     
+       stage('Validate Parameters') {
+            steps {
+                script {
+                    if (params.DEV_TENANT_URL == '') {
+                        error "Missing template parameter DEV_TENANT_URL"
+                    }
+                    if (params.repoName == '') {
+                        error "Missing template parameter repoName"
+                    }
+                    debug = params.debug
+                    if (debug == 'debug') {
+                        echo "......Running in Debug mode ......"
+                    }
+                }
+            }
+        } 
+
+        stage('Checkout wm.io project and cicd project Repos') {
+            steps {
+                
+                // Checkout the repository that contains the Jenkinsfile and other scripts and configs
+                checkout scm  // This automatically checks out the repository of the Jenkinsfile 
+
+                sh """
+                  pwd
+                  ls -lrt
+                """
+
+                script {
+                    dir("${params.repoName}") {  
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: "refs/heads/${params.env}"]], // specify branch you want to check out
+                            userRemoteConfigs: [[
+                                url: "${params.repoUrl}", // The second repo
+                                credentialsId: 'githubpat' // Your GitHub credentials (if needed)
+                            ]]
+                        ])
+                    }
+                }
+            }
+        }
+
+
+        stage('list assets from devops pipeline repo') {
+            steps {
+                echo "<<<<<<<<<<<<<<<<<<<<<<<<<-------------Listing the checkedout the code from git repo------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                  sh """
+                  echo "The workspace path is: ${env.WORKSPACE}"
+                  echo "<<<------------------see details below------------------------------------------------------->>>"
+                  pwd
+                  ls -lrt
+                  cd ${env.WORKSPACE}/${params.repoName}
+                  ls -lrt
+                  
+                    """     
+                 echo "<<<<<<<<<<<<<<<<<<<<<<<<-------------assets list finished------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"    
+            }
+        }
+        
+        stage('Check Project Exists in DEV tenant') {
+            steps {
+                script {
+                    PROJECT_URL = "https://${params.DEV_TENANT_URL}/apis/v1/rest/projects/${params.repoName}"
+                    echo "Check Project exists"
+                    def projectExists = sh(script: """
+                        curl --location --request GET ${PROJECT_URL} \
+                            --header 'Accept: application/json' \
+                            -u ${WMIO_TENANTS_CREDS_USR}:${WMIO_TENANTS_CREDS_PSW} | jq -r '.output.name // empty'
+                    """, returnStdout: true).trim()
+
+                    if (projectExists == '') {
+                        echo "Project does not exist."
+                        currentBuild.result = 'FAILURE'
+                    } else {
+                        echo "Project already exists with name: ${projectExists}"
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+                }
+                     
+        }
+
+        }
+       
+        stage('import assets from repo in DEV env') {
+
+            when {
+                expression {
+                    return currentBuild.result == 'SUCCESS'
+                }
+            }
+            
+            steps {
+
+                sh """  
+                   ls -lrt                
+                   chmod +x ./pipelines/scripts/*.sh
+                   echo "Importing asset ..."
+                  ./pipelines/scripts/importAsset.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "NA" "NA" ${env.WORKSPACE} "true" ${params.env} "false" debug
+       
+                   """
+            }
+        }
+        
+    }  
+
+    post {
+        failure {
+            echo "Build failed!"
+            cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+        success {
+            script {
+            echo "Build succeeded when deploying to DEV env!"
+            echo "Triggering the job post-deployment-testing in DEV env..."
+           def result = build job: 'post-deployment-testing', 
+                  parameters: [
+                      string(name: 'ENV', value: params.env),
+                      string(name: 'repoName', value: params.repoName),
+                      string(name: 'repoUrl', value: params.repoUrl)
+                  ], 
+                  wait: true
+
+            // Check the result of the post-deployment testing job
+            if (result.result == 'SUCCESS') {
+                echo "Post-deployment testing passed!"
+            } else {
+                echo "Post-deployment testing failed!"
+                currentBuild.result = 'FAILURE'  // Mark the current build as failed if the triggered job fails
+            }       
+          cleanWs()  // This cleans the workspace after finishing  the pipeline
+
+        }
+        }
+    }
+}
+
+

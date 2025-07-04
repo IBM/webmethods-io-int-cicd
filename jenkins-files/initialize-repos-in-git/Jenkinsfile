@@ -1,0 +1,97 @@
+pipeline {
+    agent any
+
+    environment {
+        GITHUB_TOKEN = credentials('githubpat') // Using GitHub token from Jenkins credentials
+    }
+
+    parameters {
+        string(name: 'GITHUB_REPO_URL', defaultValue: 'github.com/ibm-webmethods', description: 'GitHub repository URL with optional organization (e.g., github.com/xyz). Leave empty for no organization.')
+        string(name: 'REPO_NAME', defaultValue: 'aditya_aditya_demo_xxxxxxxx', description: 'GitHub repository name (e.g., demoProjectA).')
+        string(name: 'BRANCHES', defaultValue: 'dev,test,prod', description: 'Comma separated list of branch names (e.g., dev,test,prod).')
+    }
+
+    stages {
+        stage('Create GitHub Repository') {
+            steps {
+                script {
+                    def repoUrl = "https://${params.GITHUB_REPO_URL}"
+                    def repoName = params.REPO_NAME
+                    def branches = params.BRANCHES.split(',')
+
+                    if (!repoUrl || !repoName) {
+                        error "GitHub repository URL and repository name must be provided."
+                    }
+
+                    // Construct the repository creation URL and body for API request
+                    def apiUrl = "https://api.github.com/orgs/${repoUrl.split('/')[3]}/repos"
+                    if (!repoUrl.contains("/")) {
+                        apiUrl = "https://api.github.com/user/repos"
+                    }
+
+                    def createRepoPayload = """
+                    {
+                        "name": "${repoName}",
+                        "private": true
+                    }
+                    """
+
+                    // Create the repository using GitHub API
+                    sh """
+                        curl -X POST -H "Authorization: token ${GITHUB_TOKEN_PSW}" -d '${createRepoPayload}' ${apiUrl}
+                    """
+                }
+            }
+        }
+
+        stage('Clone Repository and Create Branches') {
+            steps {
+                script {
+                    def branches = params.BRANCHES.split(',')
+                    def githubOrgname = params.GITHUB_REPO_URL.split('/')[1]
+                    // Clone the newly created empty repository
+                    sh "git clone https://${GITHUB_TOKEN_PSW}@${params.GITHUB_REPO_URL}/${params.REPO_NAME}.git"
+                    dir(params.REPO_NAME) {
+                        // Create a default README file
+                        writeFile file: 'README.md', text: '# Default README'
+                        sh 'git add README.md'
+                        sh 'git commit -m "Initial commit with README"'
+                        
+                        // Push the initial commit to the main branch (default created by GitHub)
+                        sh 'git push origin main'
+
+                        // Rename main branch to dev
+                        sh 'git branch -m main dev'
+                        sh 'git push origin dev'
+                        sh """
+                        curl -X PATCH -H "Authorization: token ${GITHUB_TOKEN_PSW}" -d '{"default_branch": "dev"}' https://api.github.com/repos/${githubOrgname}/${params.REPO_NAME}
+                        """
+
+                        sh 'git checkout dev'  // Switch to dev branch if not already on it
+                        sh 'git push origin --delete main'  // Remove the old main branch
+                        
+
+                        // Create and push other branches
+                        for (branch in branches) {
+                            if (branch != 'dev') { // Skip creating dev branch as it's already done
+                                sh "git checkout -b ${branch}"
+                                sh "git push origin ${branch}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo "Build failed!"
+           cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+        success {
+            echo "Build succeeded!"
+          cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+    }
+}

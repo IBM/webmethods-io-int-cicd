@@ -15,7 +15,7 @@ assetType=$6
 HOME_DIR=$7
 synchProject=$8
 source_type=$9
-includeAllReferenceData=${10}
+inlcudeAllReferenceData=${10}
 debug=${@: -1}
 
 
@@ -81,7 +81,7 @@ function importAsset() {
   assetType=$6
   HOME_DIR=$7
   synchProject=$8
-  includeAllReferenceData=$9
+  inlcudeAllReferenceData=$9
 
   echod $(pwd)
   echod $(ls -ltr)
@@ -173,7 +173,7 @@ function importAsset() {
 
     if [ ${synchProject} != true ]; then
       if [[ $assetType = flowservice* ]]; then
-        if [ ${includeAllReferenceData} == true ]; then
+        if [ ${inlcudeAllReferenceData} == true ]; then
           importRefData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
       fi
       fi
@@ -415,7 +415,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${inlcudeAllReferenceData}
     done
   else
     echod "No rest apis to import"
@@ -430,7 +430,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${inlcudeAllReferenceData}
     done
   else
     echod "No workflows to import"
@@ -444,7 +444,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${inlcudeAllReferenceData}
     done
   else
     echod "No flowservices to import"
@@ -453,6 +453,6 @@ if [ ${synchProject} == true ]; then
   projectParameters ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
 
 else
-  importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${inlcudeAllReferenceData}
 fi 
 set +x

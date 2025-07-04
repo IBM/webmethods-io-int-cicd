@@ -1,0 +1,133 @@
+pipeline {
+    agent any
+
+    environment {
+        DEV_TENANT_URL = ''  //URL of the wm.io tenant dev environment
+        repoName = ''    //Repository Name i.e. the project name of your assests in wm.io. This is same as what is created in github
+        debug = ''       //Enable Debug Mode by passing value "debug"
+        WMIO_TENANTS_CREDS = credentials('wmiotenantcreds') 
+        GITHUB_TOKEN = credentials('githubpat') 
+       // wmio tenants credentials object created in jenkins creds store that has necessary access to all the env, if you have different credentials ( ideally you would have - this is POC only) for different tenants, please create the secrets accodingly.
+       // WMIO_PROJECT_REPO_CREDS = credentials('githubpat')  // git hub credentials for downloading wm.io source code repo
+        
+    }
+
+    parameters {
+        string(name: 'DEV_TENANT_URL', defaultValue: 'presalesemeadev.int-aws-de.webmethods.io', description: 'URL of the wm.io tenant environment')
+        string(name: 'repoName', defaultValue: 'aditya_demo_projectA', description: 'Repository Name i.e. the project name of your assests in wm.io')
+        string(name: 'repoUrl', defaultValue: 'https://github.com/ibm-webmethods/aditya_demo_projectA.git', description: 'Repository url ')
+        string(name: 'debug', defaultValue: 'no-debug', description: 'Enable Debug Mode by passing value "debug"')
+        string(name: 'env', defaultValue: 'dev', description: 'env of the wm.io tenant environment')
+    }
+       
+    stages {
+
+     
+       stage('Validate Parameters') {
+            steps {
+                script {
+                    if (params.DEV_TENANT_URL == '') {
+                        error "Missing template parameter DEV_TENANT_URL"
+                    }
+                    if (params.repoName == '') {
+                        error "Missing template parameter repoName"
+                    }
+                    debug = params.debug
+                    if (debug == 'debug') {
+                        echo "......Running in Debug mode ......"
+                    }
+                }
+            }
+        } 
+
+        stage('Checkout wm.io project Repo') {
+            steps {
+                
+                // Checkout the repository that contains the Jenkinsfile
+                checkout scm  // This automatically checks out the repository of the Jenkinsfile
+
+                sh """
+                  pwd
+                  ls -lrt
+                """
+
+                script {
+                    dir("${params.repoName}") {  
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: 'refs/heads/dev']], // specify branch you want to check out
+                            userRemoteConfigs: [[
+                                url: "${params.repoUrl}", // The second repo
+                                credentialsId: 'githubpat' // Your GitHub credentials (if needed)
+                            ]]
+                        ])
+                    }
+                }
+            }
+        }
+
+
+        stage('list assets from devops pipeline repo') {
+            steps {
+                echo "<<<<<<<<<<<<<<<<<<<<<<<<<-------------Listing the checkedout the code from git repo------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+                  sh """
+                  echo "The workspace path is: ${env.WORKSPACE}"
+                  echo "<<<------------------see details below------------------------------------------------------->>>"
+                  pwd
+                  ls -lrt
+                  cd ${env.WORKSPACE}/${params.repoName}
+                  ls -lrt
+                  
+                    """     
+                 echo "<<<<<<<<<<<<<<<<<<<<<<<<-------------assets list finished------------->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"    
+            }
+        }
+
+       
+        stage('export assets from repo') {
+            
+            steps {
+
+                sh """  
+                   ls -lrt                
+                   chmod +x ./pipelines/scripts/*.sh
+                   echo "Exporting asset ..."
+                  ./pipelines/scripts/exportAsset.sh https://${params.DEV_TENANT_URL}:443 ${WMIO_TENANTS_CREDS_USR} ${WMIO_TENANTS_CREDS_PSW} ${params.repoName} "NA" "NA" ${env.WORKSPACE} "true" "dev" "false" "dev" debug
+                   ls -lrt  ${env.WORKSPACE}/${params.repoName} 
+                   cat  ${env.WORKSPACE}/${params.repoName}/README.md
+        
+                   """
+            }
+        }
+
+        stage('commit assets to dev branch') {
+            
+            steps {
+
+                sh """  
+                   pwd
+                   ls -lrt
+                   chmod +x ./pipelines/scripts/github/*.sh  
+                   cd ${env.WORKSPACE}/${params.repoName} 
+                   ../pipelines/scripts/github/commitFeatureBranch.sh ${GITHUB_TOKEN_USR} ${env.BUILD_NUMBER} "dev" ${GITHUB_TOKEN_PSW} ${params.repoUrl}
+        
+                   """
+            }
+        }
+   
+        
+    }  
+
+    post {
+        failure {
+            echo "Build failed!"
+            cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+        success {
+            echo "Build succeeded!"
+            cleanWs()  // This cleans the workspace after finishing  the pipeline
+        }
+    }
+}
+
+

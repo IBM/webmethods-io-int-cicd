@@ -1,3 +1,0 @@
-"KEY","Value"
-"env","play"
-"name","someValue"
