@@ -2,7 +2,7 @@
 
 #################################################################################
 #                                                                               #
-# createFeatureFromProdBranch.sh : Create Feature Branch from Production Branch #
+#  commitProjectConfig.sh : Commit Project Config Yaml to Feature Branch        #
 #                                                                               #
 #################################################################################
 
