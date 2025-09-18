@@ -24,12 +24,12 @@ resources:
 steps:
 - checkout: projectRepo
   submodules: "true"
-  persistCredentials: "false"
+  persistCredentials: "true"
   clean: "true"
   path: $(repoName)
 - checkout: self
   submodules: "true"
-  persistCredentials: "false"
+  persistCredentials: "true"
   clean: "true"
   path: self
 
