@@ -18,6 +18,6 @@
               username: 'srinivasan.sabapathy@ibm.com'
               password: ${{ secrets.AZURE_DEVOPS_TOKEN }}
               customHeaders: '{"Content-Type": "application/json"}'
-              data: '{"parameters": "{\"repoName\":\"${{ github.event.repository.name }}\",\"synchProject\":\"true\"}","definition":{"id": 3}}'
+              data: '{"parameters": "{\"repoName\":\"${{ github.event.repository.name }}\",\"synchProject\":\"true\"}","definition":{"id": 6}}'
 
               
