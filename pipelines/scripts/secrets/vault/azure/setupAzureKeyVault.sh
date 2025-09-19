@@ -77,7 +77,7 @@ if az keyvault show --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" >/de
   echod "✅ Key vault '$VAULT_NAME' already exists."
 else
   echod "🚀 Creating key vault '$VAULT_NAME'..."
-  az keyvault create --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --only-show-errors >/dev/null
+  az keyvault create --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --enable-rbac-authorization true --only-show-errors >/dev/null
 fi
 
 # ============ RBAC ROLE ASSIGNMENT ============
@@ -86,12 +86,40 @@ if [ -n "$ACCESS_OBJECT_ID" ]; then
 
   VAULT_SCOPE="/subscriptions/$(az account show --query id --output tsv)/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$VAULT_NAME"
 
-az role assignment create \
-  --assignee "$SP_APP_ID" \
-  --role 'Key Vault Secrets Officer' \
-  --scope "$VAULT_SCOPE" --only-show-errors >/dev/null
+    # If caller provided an ACCESS_OBJECT_ID, grant to that; else grant to the SP itself.
+  ASSIGNEE_OBJECT_ID="$ACCESS_OBJECT_ID"
+  if [[ -z "$ASSIGNEE_OBJECT_ID" ]]; then
+    echod "ℹ️ No ACCESS_OBJECT_ID provided; resolving service principal objectId from appId…"
+    ASSIGNEE_OBJECT_ID="$(az ad sp show --id "$SP_APP_ID" --query id -o tsv 2>/dev/null)"
+    if [[ -z "$ASSIGNEE_OBJECT_ID" ]]; then
+      echod "❌ Could not resolve service principal objectId from appId: $SP_APP_ID"
+      exit 1
+    fi
+  fi
 
-  echod "✅ RBAC Role assignment complete."
+  #az role assignment create \
+  #  --assignee "$SP_APP_ID" \
+  #  --role 'Key Vault Secrets Officer' \
+  #  --scope "$VAULT_SCOPE" --only-show-errors >/dev/null
+
+  echod "🔐 Assigning 'Key Vault Secrets Officer' at:"
+  echod "   $VAULT_SCOPE"
+  echod "   to objectId: $ASSIGNEE_OBJECT_ID"
+
+  if az role assignment create \
+        --assignee-object-id "$ASSIGNEE_OBJECT_ID" \
+        --role "Key Vault Secrets Officer" \
+        --scope "$VAULT_SCOPE" \
+        --only-show-errors >/dev/null; then
+    echod "✅ RBAC role assignment complete."
+  else
+    echod "❌ RBAC role assignment failed."
+    echod "   The calling principal must have 'User Access Administrator' or 'Owner' on this scope."
+    az account show --query "{signedInAs:user.name,subscription:id}" -o tsv 2>/dev/null \
+      | xargs -I{} echod "   Context: {}"
+    exit 1
+  fi
+
 fi
 
 echod "🎉 Azure Key Vault '$VAULT_NAME' is ready to use!"
