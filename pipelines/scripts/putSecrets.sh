@@ -18,12 +18,13 @@ debug="${@: -1}"
 
 # Validate required inputs
 [ -z "$provider" ] && echo "Missing template parameter provider" >&2 && exit 1
-[ -z "$secretName" ] && echo "Missing template parameter secretName" >&2 && exit 1
-[ -z "$secretValue" ] && echo "Missing template parameter secretValue" >&2 && exit 1
+[ -z "$secretName" ] && echo "Missing template parameter secretName" >&2 && exit 11
 [ -z "$repoUser" ] && echo "Missing template parameter repoUser" >&2 && exit 1
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
 [ -z "$PAT" ] && echo "Missing template parameter PAT" >&2 && exit 1
 [ -z "$HOME_DIR" ] && echo "Missing template parameter HOME_DIR" >&2 && exit 1
+
+
 
 # Debug mode
 if [ "$debug" == "debug" ]; then
@@ -31,9 +32,16 @@ if [ "$debug" == "debug" ]; then
   set -x
 fi
 
+
 function echod() {
   echo "$@" >&2
 }
+
+# Default SECRET_VALUE if empty
+if [[ -z "$secretValue" ]]; then
+  secretValue="PLEASE FILL IN"
+  echod "⚠️ Defaulting the value as it is empty"
+fi
 
 case "$provider" in
   github)

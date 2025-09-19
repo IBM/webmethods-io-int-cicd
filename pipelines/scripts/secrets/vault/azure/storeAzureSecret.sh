@@ -23,18 +23,14 @@ function echod() {
 }
 
 # ============ VALIDATION ============
-if [[ -z "$VAULT_NAME" || -z "$SECRET_NAME" ]]; then
+if [[ -z "$VAULT_NAME" || -z "$SECRET_NAME" || -z "$SECRET_VALUE" ]]; then
   echod "❌ Missing required parameters."
   echod "Usage: ./storeAzureSecret.sh <vault_name> <secret_name> <secret_value> [debug]"
   exit 1
 fi
 
 
-# Default SECRET_VALUE if empty
-if [[ -z "$SECRET_VALUE" ]]; then
-  SECRET_VALUE="PLEASE FILL IN"
-  echod "⚠️ Defaulting the value as it is empty"
-fi
+
 # ============ STORE SECRET ============
 echod "🔐 Storing secret '$SECRET_NAME' in vault '$VAULT_NAME'..."
 az keyvault secret set --vault-name "$VAULT_NAME" --name "$SECRET_NAME" --value "$SECRET_VALUE" --only-show-errors >/dev/null
