@@ -70,13 +70,13 @@
 		},
 		{
 			"key": "project",
-			"value": "wmio_project_a",
+			"value": "wmio_project_b",
 			"type": "default",
 			"enabled": true
 		},
 		{
 			"key": "Request1.webhookid",
-			"value": "1MigR9wZtW",
+			"value": "275s6PjWqk",
 			"type": "default",
 			"enabled": true
 		},
