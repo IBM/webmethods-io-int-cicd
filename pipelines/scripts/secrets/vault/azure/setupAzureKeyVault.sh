@@ -1,125 +1,145 @@
 #!/bin/bash
-
 #############################################################################
-#                                                                           #
-# setupAzureKeyVault.sh : Initializes Azure Key Vault.                      #
-#                                                                           #
+# setupAzureKeyVault.sh : Initializes Azure Key Vault.
 #############################################################################
 
+# ---- Safety & sane defaults ------------------------------------------------
+set -Eeuo pipefail
+trap 'echo "ERROR at line $LINENO" >&2' ERR
+export AZURE_CORE_COLLECT_TELEMETRY=false
+export AZURE_HTTP_USER_AGENT="wmio-devops/ci"
 
-
-# ============ INPUT PARAMETERS ============
+# ---- Input parameters ------------------------------------------------------
 VAULT_NAME=$1             # e.g. kv-myproject
 RESOURCE_GROUP=$2         # e.g. my-rg
 LOCATION=$3               # e.g. westeurope
 TENANT_ID=$4              # Azure AD tenant ID
-SP_APP_ID=$5              # Service Principal App ID (aka client_id)
-SP_PASSWORD=$6            # Service Principal password (aka client_secret)
-ACCESS_OBJECT_ID=$7       # Optional: Object ID to grant access
-DEBUG="${@: -1}"          # Optional: enable debug logs
+SP_APP_ID=$5              # Service Principal App ID (client_id)
+SP_PASSWORD=$6            # Service Principal password (client_secret)
+ACCESS_OBJECT_ID=${7:-}   # Optional: Object ID to grant access
+DEBUG="${@: -1}"          # Optional: "debug" or "true" enables verbose logs
 
-
-
-
-# ============ DEBUG MODE ============
+# ---- Debug handling (avoid leaking secrets) --------------------------------
+# We will NOT keep xtrace on around az login to prevent echoing the secret.
+DEBUG_XTRACE=0
 if [[ "$DEBUG" == "debug" || "$DEBUG" == "true" ]]; then
   echo "🔍 Running in debug mode" >&2
   set -x
+  DEBUG_XTRACE=1
 fi
 
-function echod() {
-  echo "$@" >&2
-}
+echod() { echo "$@" >&2; }
 
-
-# ============ VALIDATION ============
-if [[ -z "$VAULT_NAME" || -z "$RESOURCE_GROUP" || -z "$LOCATION" || -z "$TENANT_ID" || -z "$SP_APP_ID" || -z "$SP_PASSWORD" ]]; then
+# ---- Validation ------------------------------------------------------------
+if [[ -z "${VAULT_NAME:-}" || -z "${RESOURCE_GROUP:-}" || -z "${LOCATION:-}" || -z "${TENANT_ID:-}" || -z "${SP_APP_ID:-}" || -z "${SP_PASSWORD:-}" ]]; then
   echod "❌ Missing required parameters."
   echod "Usage: ./setupAzureKeyVault.sh <vault_name> <resource_group> <location> <tenant_id> <sp_app_id> <sp_password> [access_object_id] [debug]"
   exit 1
 fi
 
-# ============ TRIM INPUTS ============
-SP_APP_ID=$(echo "$SP_APP_ID" | xargs)
-ACCESS_OBJECT_ID=$(echo "$ACCESS_OBJECT_ID" | xargs)
-TENANT_ID=$(echo "$TENANT_ID" | xargs)
+# ---- Trim inputs -----------------------------------------------------------
+SP_APP_ID="$(echo "$SP_APP_ID" | xargs)"
+ACCESS_OBJECT_ID="$(echo "${ACCESS_OBJECT_ID:-}" | xargs)"
+TENANT_ID="$(echo "$TENANT_ID" | xargs)"
 
+# ---- Heartbeat to keep logs alive ------------------------------------------
+( while :; do echo "[hb] $(date -Is) setupAzureKeyVault.sh"; sleep 20; done ) & HB=$!
 
-# ============ INSTALL AZ CLI (if missing) ============
-if ! command -v az &> /dev/null; then
-  echod "📦 Installing Azure CLI..."
-  curl -sL https://aka.ms/InstallAzureCLIDeb | bash >/dev/null
-  if [ $? -ne 0 ]; then
-    echod "❌ Failed to install Azure CLI."
-    exit 1
-  fi
-fi
-
-# ============ LOGIN ============
-echod "🔐 Logging into Azure..."
-az login --service-principal -u "$SP_APP_ID" -p "$SP_PASSWORD" --tenant "$TENANT_ID" --only-show-errors >/dev/null
-
-if [ $? -ne 0 ]; then
-  echod "❌ Azure login failed."
-  exit 1
-fi
-
-# ============ RESOURCE GROUP ============
-echod "📁 Checking resource group..."
-az group show --name "$RESOURCE_GROUP" >/dev/null 2>&1 || {
-  echod "📁 Resource group not found, creating..."
-  az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --only-show-errors >/dev/null
+# ---- Retry helper ----------------------------------------------------------
+retry() {
+  # usage: retry <cmd...>
+  local n=0 max=5 delay=2
+  until "$@"; do
+    n=$((n+1))
+    if (( n >= max )); then
+      return 1
+    fi
+    echod "⏳ Retry $n/$max in ${delay}s..."
+    sleep "$delay"
+    delay=$(( delay * 2 ))
+  done
 }
 
-# ============ KEY VAULT ============
-echod "🔐 Checking key vault '$VAULT_NAME'..."
-if az keyvault show --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-  echod "✅ Key vault '$VAULT_NAME' already exists."
-else
-  echod "🚀 Creating key vault '$VAULT_NAME'..."
-  az keyvault create --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --enable-rbac-authorization true --only-show-errors >/dev/null
+# ---- Ensure Azure CLI exists (Microsoft-hosted agents usually have it) -----
+if ! command -v az &>/dev/null; then
+  echod "📦 Installing Azure CLI..."
+  curl -sL https://aka.ms/InstallAzureCLIDeb | bash >/dev/null
 fi
 
-# ============ RBAC ROLE ASSIGNMENT ============
-if [ -n "$ACCESS_OBJECT_ID" ]; then
-  echod "🔐 Assigning 'Key Vault Secrets Officer' role to object: $ACCESS_OBJECT_ID"
+# ---- Cloud context (fast no-op if already set) -----------------------------
+retry timeout 15s az cloud set --name AzureCloud >/dev/null 2>&1 || true
 
-  VAULT_SCOPE="/subscriptions/$(az account show --query id --output tsv)/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$VAULT_NAME"
+# ---- Login (no xtrace here to avoid leaking the secret) --------------------
+echod "🔐 Logging into Azure..."
+if (( DEBUG_XTRACE )); then set +x; fi
+if ! retry timeout 60s az login --service-principal \
+      -u "$SP_APP_ID" \
+      -p "$SP_PASSWORD" \
+      --tenant "$TENANT_ID" \
+      --allow-no-subscriptions \
+      --output none --only-show-errors; then
+  echod "❌ Azure login failed."
+  (( DEBUG_XTRACE )) && set -x
+  kill "$HB" 2>/dev/null || true
+  exit 1
+fi
+(( DEBUG_XTRACE )) && set -x
 
-    # If caller provided an ACCESS_OBJECT_ID, grant to that; else grant to the SP itself.
-  ASSIGNEE_OBJECT_ID="$ACCESS_OBJECT_ID"
-  if [[ -z "$ASSIGNEE_OBJECT_ID" ]]; then
-    echod "ℹ️ No ACCESS_OBJECT_ID provided; resolving service principal objectId from appId…"
-    ASSIGNEE_OBJECT_ID="$(az ad sp show --id "$SP_APP_ID" --query id -o tsv 2>/dev/null)"
-    if [[ -z "$ASSIGNEE_OBJECT_ID" ]]; then
-      echod "❌ Could not resolve service principal objectId from appId: $SP_APP_ID"
-      exit 1
-    fi
-  fi
+# ---- Pin subscription if provided (speeds up everything) -------------------
+if [[ -n "${SUBSCRIPTION_ID:-}" ]]; then
+  retry timeout 20s az account set --subscription "$SUBSCRIPTION_ID" --only-show-errors >/dev/null
+fi
 
-  #az role assignment create \
-  #  --assignee "$SP_APP_ID" \
-  #  --role 'Key Vault Secrets Officer' \
-  #  --scope "$VAULT_SCOPE" --only-show-errors >/dev/null
+# Quick sanity (and warms the token cache)
+retry timeout 20s az account show -o none --only-show-errors
+
+# ---- Resource Group --------------------------------------------------------
+echod "📁 Checking resource group '$RESOURCE_GROUP'..."
+if ! timeout 30s az group show --name "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  echod "📁 Resource group not found, creating..."
+  retry timeout 90s az group create \
+    --name "$RESOURCE_GROUP" \
+    --location "$LOCATION" \
+    --only-show-errors >/dev/null
+fi
+
+# ---- Key Vault -------------------------------------------------------------
+echod "🔐 Checking key vault '$VAULT_NAME'..."
+if ! timeout 30s az keyvault show --name "$VAULT_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  echod "🚀 Creating key vault '$VAULT_NAME'..."
+  retry timeout 120s az keyvault create \
+    --name "$VAULT_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --location "$LOCATION" \
+    --enable-rbac-authorization true \
+    --only-show-errors >/dev/null
+else
+  echod "✅ Key vault '$VAULT_NAME' already exists."
+fi
+
+# ---- RBAC Role Assignment (optional) ---------------------------------------
+if [[ -n "${ACCESS_OBJECT_ID:-}" ]]; then
+  VAULT_SCOPE="/subscriptions/$(timeout 15s az account show --query id -o tsv)/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$VAULT_NAME"
 
   echod "🔐 Assigning 'Key Vault Secrets Officer' at:"
   echod "   $VAULT_SCOPE"
-  echod "   to objectId: $ASSIGNEE_OBJECT_ID"
+  echod "   to objectId: $ACCESS_OBJECT_ID"
 
-  if az role assignment create \
-        --assignee-object-id "$ASSIGNEE_OBJECT_ID" \
+  if ! retry timeout 60s az role assignment create \
+        --assignee-object-id "$ACCESS_OBJECT_ID" \
         --role "Key Vault Secrets Officer" \
         --scope "$VAULT_SCOPE" \
         --only-show-errors >/dev/null; then
-    echod "✅ RBAC role assignment complete."
-  else
     echod "❌ RBAC role assignment failed."
     echod "   The calling principal must have 'User Access Administrator' or 'Owner' on this scope."
-    az account show --query "{signedInAs:user.name,subscription:id}" -o tsv 2>/dev/null \
+    timeout 10s az account show --query "{signedInAs:user.name,subscription:id}" -o tsv 2>/dev/null \
       | xargs -I{} echod "   Context: {}"
+    kill "$HB" 2>/devnull || true
     exit 1
   fi
 
+  echod "✅ RBAC role assignment complete."
 fi
 
+kill "$HB" 2>/dev/null || true
 echod "🎉 Azure Key Vault '$VAULT_NAME' is ready to use!"
