@@ -175,21 +175,22 @@ function importAsset() {
   fi
  cd ${HOME_DIR}/${repoName}
 }
+
 function importSingleProjectParameters() {
-  set -Eeuo pipefail
+  set -Eeu -o pipefail
   trap 'echo "ERROR in importSingleProjectParameters at line $LINENO" >&2' ERR
 
-  local LOCAL_DEV_URL="$1"
-  local admin_user="$2"
-  local admin_password="$3"
-  local repoName="$4"
-  local assetID="$5"
-  local assetType="$6"
-  local HOME_DIR="$7"
-  local synchProject="$8"
-  local source_type="$9"
-  local projectID="${10}"
-  local d="$assetID"
+  # args (10th is optional)
+  local LOCAL_DEV_URL="${1:?arg1 LOCAL_DEV_URL missing}"
+  local admin_user="${2:?arg2 admin_user missing}"
+  local admin_password="${3:?arg3 admin_password missing}"
+  local repoName="${4:?arg4 repoName missing}"
+  local assetID="${5:?arg5 assetID missing}"
+  local assetType="${6:?arg6 assetType missing}"
+  local HOME_DIR="${7:?arg7 HOME_DIR missing}"
+  local synchProject="${8:?arg8 synchProject missing}"
+  local source_type="${9:?arg9 source_type missing}"
+  local projectID="${10-}"   # <-- optional; empty if not passed
 
   cd "${HOME_DIR}/${repoName}"
 
@@ -200,16 +201,16 @@ function importSingleProjectParameters() {
   fi
 
   echo "Project parameters needs to be synched"
-  echod "ProjectID: ${projectID}"
+  [[ -n "$projectID" ]] && echod "ProjectID: ${projectID}"
   cd "$DIR"
 
-  if [[ ! -d "$d" ]]; then
+  if [[ ! -d "$assetID" ]]; then
     echo "Invalid Project Parameter / Asset Id to import."
     return 1
   fi
 
-  echod "$d"
-  cd "$d"
+  echod "$assetID"
+  cd "$assetID"
 
   if [[ ! -f ./metadata.json ]]; then
     echo "Metadata not found!"
@@ -224,25 +225,24 @@ function importSingleProjectParameters() {
   local PROJECT_PARAM_GET_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params/${parameterUID}"
   echod "$PROJECT_PARAM_GET_URL"
 
-  # Helper to run sensitive commands with xtrace off (to avoid leaking creds)
+  # Helper to run sensitive commands with xtrace off
   _with_secret() { local x=0; [[ $- == *x* ]] && x=1 && set +x; "$@"; local rc=$?; ((x)) && set -x; return $rc; }
 
-  # GET existing param (with timeouts; fail if HTTP !2xx)
-  local ppListJson
+  # GET existing param (timeouts; treat non-2xx as "not found")
+  local ppListJson=""
   _with_secret bash -c 'pp="$(
-    curl -sS --fail-with-body --connect-timeout 10 --max-time 60 \
-      --location --request GET "'"$PROJECT_PARAM_GET_URL"'" \
+    curl -sS --connect-timeout 10 --max-time 60 --location \
+      --request GET "'"$PROJECT_PARAM_GET_URL"'" \
       --header "Content-Type: application/json" \
       --header "Accept: application/json" \
-      -u "'"$admin_user"':'"$admin_password"'"
+      -u "'"$admin_user"':'"$admin_password"'" || true
   )"; printf "%s" "$pp"' | read -r ppListJson
 
-  # If GET returns a non-2xx, ppListJson will be empty; treat as "not found"
   local ppExport
   ppExport="$(jq -r '.output.uid // empty' <<<"${ppListJson:-}")"
   echod "$ppExport"
 
-  # Load the payload we want to apply
+  # Payload we want to apply
   local parameterJSON
   parameterJSON="$(jq -c '.' ./*_"$source_type".json)"
   echod "Param: $(jq -c . <<<"$parameterJSON")"
@@ -296,6 +296,7 @@ function importSingleProjectParameters() {
     fi
   fi
 }
+
 
 function importSingleRefData(){
   LOCAL_DEV_URL=$1
