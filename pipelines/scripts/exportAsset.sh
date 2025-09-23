@@ -76,6 +76,7 @@ function maskFieldsInJson() {
     # detect from JSON
     local acct_type
     acct_type="$(echo "$json_input" | jq -r '.sourceMetadata.providerName // .sourceMetadata.connectorType // .type // empty')"
+    echod "Type:"$acct_type
 
     case "$acct_type" in
       # Google Sheets style oauth2 account
