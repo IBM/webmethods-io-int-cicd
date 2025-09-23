@@ -67,29 +67,21 @@ function echod() {
 function maskFieldsInJson() {
   local json_input="$1"
   local key="$2"
-  shift
-  local fields=("$@")         # optional explicit list, preserves old behavior
+  shift 2                                 # ← FIX: drop first TWO args
+  local fields=("$@")
   local masked_json="$json_input"
 
-  # If no fields passed, choose per account type
+  # Auto-pick fields when caller doesn't pass any
   if [[ ${#fields[@]} -eq 0 ]]; then
-    # detect from JSON
     local acct_type
     acct_type="$(echo "$json_input" | jq -r '.sourceMetadata.providerName // .sourceMetadata.connectorType // .type // empty')"
-    echod "Type:"$acct_type
-
     case "$acct_type" in
-      # Google Sheets style oauth2 account
       google_sheet|oauth2)
         fields=(client_id client_secret access_token refresh_token)
         ;;
-
-      # Custom REST account (keys are dotted)
       WmRESTProvider|CustomREST)
         fields=("oauth.consumerId" "oauth.consumerSecret" "oauth.accessToken" "oauth_v20.refreshToken")
         ;;
-
-      # Unknown → nothing to mask unless caller passes fields
       *)
         echod "ℹ️ Unknown account type '$acct_type' – no auto fields; pass list to mask."
         ;;
@@ -107,26 +99,26 @@ function maskFieldsInJson() {
     fi
 
     for path in "${paths[@]}"; do
-      # Extract current value
+      # Extract value
       value=$(echo "$masked_json" | jq -r "getpath($path)")
 
       # Store secret per env
       IFS=, read -ra values <<< "$envTypes"
       for v in "${values[@]}"; do
         fullSecretName="Project-${repoName}-Account-${key}-Field-${field}-Env-${v}"
-        fullSecretName=$(echo "$fullSecretName" | sed 's/_/-/g')   # keep your original behavior
+        fullSecretName=$(echo "$fullSecretName" | sed 's/[_.]/-/g')   # dots/underscores → '-'
         if [ "$provider" == "azure" ]; then
-          $HOME_DIR/self/pipelines/scripts/putSecrets.sh "$provider" "$fullSecretName" "$value" "$vaultName" unused unused "$HOME_DIR" debug
+          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$fullSecretName" "$value" "$vaultName" unused unused "$HOME_DIR" debug
         else
-          $HOME_DIR/self/pipelines/scripts/putSecrets.sh "$provider" "$fullSecretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
+          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$fullSecretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
         fi
-        # Update YAML with field name
+        # Track masked field in YAML
         yq eval -i \
           ".project.accounts.\"${key}\".secrets = ((.project.accounts.\"${key}\".secrets // []) + [\"${field}\"] | unique)" \
           "$PROJECT_CONFIG_FILE"
       done
 
-      # Mask value in JSON
+      # Mask in JSON
       masked_json=$(echo "$masked_json" | jq "setpath($path; \"****MASKED****\")")
     done
   done
