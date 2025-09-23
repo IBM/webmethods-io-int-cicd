@@ -63,72 +63,107 @@ function echod() {
   echo "$@" >&2
 }
 
-
 function maskFieldsInJson() {
-  local json_input="$1"
-  local key="$2"
+  local json_input="$1"   # full account JSON
+  local key="$2"          # account name (for secret naming)
   shift 2
-  local fields=("$@")
+  local fields_override=("$@")  # optional: explicit fields for this call
+
   local masked_json="$json_input"
 
-  # If caller didn't pass a list, use a sensible default
-  if [[ ${#fields[@]} -eq 0 ]]; then
-    fields=(user username pass password secret client_id client_secret access_token refresh_token token)
+  # --- Detect provider / type from JSON ----------------------------
+  local providerName
+  providerName="$(echo "$json_input" | jq -r '.sourceMetadata.providerName // .sourceMetadata.connectorType // .type // empty')"
+
+  # --- Build the allow-list (Pass 1) -------------------------------
+  # If caller provided explicit fields, use them; else use per-provider map.
+  local exact_fields=()
+  if [[ ${#fields_override[@]} -gt 0 ]]; then
+    exact_fields=("${fields_override[@]}")
+  else
+    case "$providerName" in
+      google_sheet|google_sheet_oauth|oauth2)
+        # JSON has "data.client_id" etc.
+        exact_fields=( "data.client_id" "data.client_secret" "data.access_token" "data.refresh_token" )
+        ;;
+      WmRESTProvider|CustomREST)
+        # JSON has dotted keys inside data.*
+        exact_fields=( "data.oauth.accessToken" "data.oauth.consumerSecret" "data.oauth_v20.refreshToken" "data.oauth.consumerId" )
+        ;;
+      *)
+        exact_fields=()  # unknown → fallback only
+        ;;
+    esac
   fi
 
-  # Build normalized suffix list (strip non-alnum, lowercase, map common aliases)
-  local norm_list=()
-  for f in "${fields[@]}"; do
-    local n="$(echo "$f" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')"
-    case "$n" in
-      client_id)        n="clientid" ;;
-      client_secret)    n="clientsecret" ;;
-      access_token)     n="accesstoken" ;;
-      refresh_token)    n="refreshtoken" ;;
-    esac
-    [[ -n "$n" ]] && [[ ! " ${norm_list[*]} " =~ " $n " ]] && norm_list+=("$n")
-  done
+  # Helper: add paths to a bash array from jq
+  _collect_paths() {
+    local input_json="$1"; shift
+    local -a endswith_list=("$@")
+    if [[ ${#endswith_list[@]} -eq 0 ]]; then return 0; fi
+    # Build JSON array of patterns
+    local wants; wants="$(printf '%s\n' "${endswith_list[@]}" | jq -R . | jq -s .)"
+    echo "$input_json" | jq -r --argjson W "$wants" '
+      paths(strings) as $p
+      | ( $p | map(tostring) | join(".") ) as $jp
+      | select( any($W[]; $jp | endswith(.)) )
+      | @json
+    '
+  }
 
-  # Compose a regex to match ONLY when the normalized key ENDS with one of these suffixes
-  local sfx_re="("
-  for i in "${!norm_list[@]}"; do
-    sfx_re+="${norm_list[$i]}"
-    [[ $i -lt $((${#norm_list[@]}-1)) ]] && sfx_re+="|"
-  done
-  sfx_re+=")\$"
+  # Pass 1: exact fields (by suffix match on the full dotted path)
+  mapfile -t p1_paths < <(_collect_paths "$masked_json" "${exact_fields[@]}")
 
-  # Find all string paths whose last key (normalized) ends with one of the sensitive suffixes
-  mapfile -t paths < <(
-    echo "$masked_json" | jq -r --arg sfx "$sfx_re" '
+  # --- Pass 2: generic suffixes with exclusions --------------------
+  # Normalize to last-key-only suffix; exclude things like token_type, *RefreshURL, *Request, etc.
+  mapfile -t p2_paths < <(
+    echo "$masked_json" | jq -r '
       paths(strings)
-      | select( (.[-1] | type) == "string" )
+      | select((.[-1]|type)=="string")
+      | . as $p
+      | (.[-1] | ascii_downcase | gsub("[^a-z0-9]"; "")) as $last
       | select(
-          (.[-1] | ascii_downcase | gsub("[^a-z0-9]"; "")) | test($sfx)
+          # include when the last key ends with one of these:
+          ($last | test("(clientid|clientsecret|password|secret|accesstoken|refreshtoken|apikey)$"))
+          and
+          # but NOT these endings (exclusions):
+          ($last | test("(tokentype|refreshurl|refreshurlrequest|customesbservice|authorizationheader|expiry|expiresin)$") | not)
         )
       | @json
     '
   )
 
-  if [[ ${#paths[@]} -eq 0 ]]; then
-    echod "🔍 No sensitive fields matched for account '$key' with $sfx_re"
+  # Merge paths (p1 first, then p2), unique by JSON text
+  declare -A seen=()
+  local all_paths=()
+  for x in "${p1_paths[@]}" "${p2_paths[@]}"; do
+    [[ -z "$x" ]] && continue
+    if [[ -z "${seen[$x]:-}" ]]; then
+      seen[$x]=1
+      all_paths+=("$x")
+    fi
+  done
+
+  # Nothing to mask? return as-is
+  if [[ ${#all_paths[@]} -eq 0 ]]; then
+    echod "🔍 No sensitive fields matched for '$key' (provider: ${providerName:-unknown})"
     echo "$masked_json"
     return 0
   fi
 
-  for path in "${paths[@]}"; do
-    # Key name as it appears in the JSON (may include dots/underscores)
-    local found_key
+  # --- Apply masking + secret storage ---------------------------------------
+  for path in "${all_paths[@]}"; do
+    # Actual key name and value at the path
+    local found_key value
     found_key="$(jq -r --argjson p "$path" '$p | .[-1]' <<< 'null')"
-    [[ -z "$found_key" || "$found_key" == "null" ]] && continue
-
-    # Current value (we only mask non-empty strings)
-    local value
     value="$(echo "$masked_json" | jq -r --argjson p "$path" 'getpath($p)')"
+
+    # Skip empties/nulls
     [[ -z "$value" || "$value" == "null" ]] && continue
 
-    # Persist the secret per env and record the exact key in YAML
-    IFS=, read -ra values <<< "$envTypes"
-    for v in "${values[@]}"; do
+    # Persist secret per env
+    IFS=, read -ra envs <<< "$envTypes"
+    for v in "${envs[@]}"; do
       local fullSecretName="Project-${repoName}-Account-${key}-Field-${found_key}-Env-${v}"
       fullSecretName="$(echo "$fullSecretName" | sed 's/[_.]/-/g')"
 
@@ -138,6 +173,7 @@ function maskFieldsInJson() {
         "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$fullSecretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
       fi
 
+      # Update YAML with the exact key name that was masked
       yq eval -i \
         ".project.accounts.\"${key}\".secrets = ((.project.accounts.\"${key}\".secrets // []) + [\"${found_key}\"] | unique)" \
         "$PROJECT_CONFIG_FILE"
@@ -149,6 +185,7 @@ function maskFieldsInJson() {
 
   echo "$masked_json"
 }
+
 
 
 function exportSingleReferenceData () {
@@ -230,8 +267,7 @@ function exportConnection(){
             mkdir -p ./$name
             cd $name
             #maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
-            #maskedJson=$(maskFieldsInJson "$item" "$name" user password token secret client_id clientid consumerid consumersecret apikey api_key)
-            maskedJson=$(maskFieldsInJson "$item" "$name" consumerid client_id client_secret access_token refresh_token user password token secret)
+            maskedJson=$(maskFieldsInJson "$item" "$name")
             echo "$maskedJson" > ${name}_${source_type}.json
             configPerEnv . ${envTypes} "connection" ${name}_${source_type}.json $name
             echod "✅ Saved ${name}_${source_type}.json"
