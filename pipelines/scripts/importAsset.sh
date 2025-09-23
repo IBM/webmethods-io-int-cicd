@@ -247,10 +247,21 @@ function importSingleProjectParameters(){
         # CHANGE 2: replace the hanging 'jq -c .' with a safe, piped debug
         echo "$ppListJson" | jq -c .
 
-        #parameterJSON=`jq -c '.' ./*_${source_type}.json`
-        files=( ./*_"$source_type".json )
-        if [ ${#files[@]} -eq 0 ]; then echo "Param JSON not found: ./*_${source_type}.json"; exit 1; fi
-        parameterJSON="$(jq -c '.' "${files[0]}")" 
+        # prefer env-specific file; else use the first *.json
+        if compgen -G "./*_${source_type}.json" > /dev/null; then
+          param_file="$(ls -1 ./*_"$source_type".json | head -n1)"
+        else
+          param_file="$(ls -1 ./*.json | head -n1)"
+        fi
+
+        if [ -z "$param_file" ]; then
+          echo "Param JSON not found (looked for ./*_${source_type}.json then ./*.json)"
+          exit 1
+        fi
+
+        echod "Using Param file: $param_file"
+        parameterJSON="$(jq -c '.' "$param_file")"
+
 
         echod "Param: "${parameterJSON}
         ppUpdateJson=$(curl --location --request PUT ${PROJECT_PARAM_UPDATE_URL}  \
