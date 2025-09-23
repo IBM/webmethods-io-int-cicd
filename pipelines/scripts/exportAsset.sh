@@ -71,38 +71,67 @@ function maskFieldsInJson() {
   local fields=("$@")
   local masked_json="$json_input"
 
+  # If no fields were provided, use a sensible default set
+  if [[ ${#fields[@]} -eq 0 ]]; then
+    fields=(user username pass password token secret client_id clientid apikey api_key consumersecret consumerid)
+  fi
+
   for field in "${fields[@]}"; do
-    # Find all paths ending in the sensitive field
-    mapfile -t paths < <(echo "$masked_json" | jq -r "paths | select(.[-1] == \"$field\") | @json")
+    # Normalize the search token: lowercase, remove non-alnum (so client_id -> clientid)
+    local needle
+    needle="$(echo "$field" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')"
+    [[ -z "$needle" ]] && continue
+
+    # Find all scalar paths whose LAST KEY contains the needle (case-insensitive, ignoring punctuation)
+    mapfile -t paths < <(
+      echo "$masked_json" | jq -r --arg needle "$needle" '
+        paths(scalars)
+        | select((.[-1] | type) == "string"
+                 and ((.[-1] | ascii_downcase | gsub("[^a-z0-9]"; "")) | contains($needle)))
+        | @json
+      '
+    )
 
     if [[ ${#paths[@]} -eq 0 ]]; then
-      echod "🔍 Field '$field' not found, skipping..."
+      echod "🔍 No matches for pattern '$field', skipping..."
       continue
     fi
 
     for path in "${paths[@]}"; do
-      # Extract value at the path
-      value=$(echo "$masked_json" | jq -r "getpath($path)")
+      # Extract the ACTUAL key name that matched (last element of the path)
+      local found_key
+      found_key="$(jq -r --argjson p "$path" '$p | .[-1]' <<< 'null')"
+      [[ -z "$found_key" || "$found_key" == "null" ]] && continue
 
-      # Store secret (e.g., in GitHub Actions)
+      # Extract value at the path
+      local value
+      value="$(echo "$masked_json" | jq -r --argjson p "$path" 'getpath($p)')"
+      # Skip empty values to avoid storing blanks
+      [[ -z "$value" || "$value" == "null" ]] && continue
+
+      # Build a safe secret name (replace _ and . with -; keep your existing pattern)
+      local fullSecretName="Project-${repoName}-Account-${key}-Field-${found_key}-Env"
+      fullSecretName="$(echo "$fullSecretName" | sed 's/[_.]/-/g')"
+
+      # Store secret for each env and record field in project-config.yml
       IFS=, read -ra values <<< "$envTypes"
-      for v in "${values[@]}"
-      do
-        fullSecretName="Project-${repoName}-Account-${key}-Field-${field}-Env-${v}"
-        fullSecretName=$(echo "$fullSecretName" | sed 's/_/-/g')
+      for v in "${values[@]}"; do
+        local secretName="${fullSecretName}-${v}"
+
         if [ "$provider" == "azure" ]; then
-          
-          $HOME_DIR/self/pipelines/scripts/putSecrets.sh "$provider" "$fullSecretName" "$value" "$vaultName" unused unused "$HOME_DIR" debug
+          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$secretName" "$value" "$vaultName" unused unused "$HOME_DIR" debug
         else
-          $HOME_DIR/self/pipelines/scripts/putSecrets.sh "$provider" "$fullSecretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
-        fi     
-        # Update YAML with field name
+          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$secretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
+        fi
+
+        # Update YAML with the ACTUAL matched field name
         yq eval -i \
-        ".project.accounts.\"${key}\".secrets = ((.project.accounts.\"${key}\".secrets // []) + [\"${field}\"] | unique)" \
-        "$PROJECT_CONFIG_FILE"
+          ".project.accounts.\"${key}\".secrets = ((.project.accounts.\"${key}\".secrets // []) + [\"${found_key}\"] | unique)" \
+          "$PROJECT_CONFIG_FILE"
       done
-      # Mask value in JSON
-      masked_json=$(echo "$masked_json" | jq "setpath($path; \"****MASKED****\")")
+
+      # Mask the value in JSON at the exact path
+      masked_json="$(echo "$masked_json" | jq --argjson p "$path" 'setpath($p; "****MASKED****")')"
     done
   done
 
@@ -187,7 +216,8 @@ function exportConnection(){
             name=$(echo "$item" | jq -r '.name')
             mkdir -p ./$name
             cd $name
-            maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
+            #maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
+            maskedJson=$(maskFieldsInJson "$item" "$name" user password token secret client_id clientid consumerid consumersecret apikey api_key)
             echo "$maskedJson" > ${name}_${source_type}.json
             configPerEnv . ${envTypes} "connection" ${name}_${source_type}.json $name
             echod "✅ Saved ${name}_${source_type}.json"
