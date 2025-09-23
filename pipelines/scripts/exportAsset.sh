@@ -134,6 +134,7 @@ function maskFieldsInJson() {
 }
 
 
+
 function exportSingleReferenceData () {
   LOCAL_DEV_URL=$1
   admin_user=$2
@@ -212,8 +213,8 @@ function exportConnection(){
             name=$(echo "$item" | jq -r '.name')
             mkdir -p ./$name
             cd $name
-            maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
-            #maskedJson=$(maskFieldsInJson "$item" "$name")
+            #maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
+            maskedJson=$(maskFieldsInJson "$item" "$name")
 
             echo "$maskedJson" > ${name}_${source_type}.json
             configPerEnv . ${envTypes} "connection" ${name}_${source_type}.json $name
