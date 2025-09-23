@@ -176,125 +176,96 @@ function importAsset() {
  cd ${HOME_DIR}/${repoName}
 }
 
-function importSingleProjectParameters() {
-  set -Eeu -o pipefail
-  trap 'echo "ERROR in importSingleProjectParameters at line $LINENO" >&2' ERR
+function importSingleProjectParameters(){
+  LOCAL_DEV_URL=$1
+  admin_user=$2
+  admin_password=$3
+  repoName=$4
+  assetID=$5
+  assetType=$6
+  HOME_DIR=$7
+  synchProject=$8
+  source_type=$9
+  projectID=${10}
+  d=$assetID
 
-  # args (10th is optional)
-  local LOCAL_DEV_URL="${1:?arg1 LOCAL_DEV_URL missing}"
-  local admin_user="${2:?arg2 admin_user missing}"
-  local admin_password="${3:?arg3 admin_password missing}"
-  local repoName="${4:?arg4 repoName missing}"
-  local assetID="${5:?arg5 assetID missing}"
-  local assetType="${6:?arg6 assetType missing}"
-  local HOME_DIR="${7:?arg7 HOME_DIR missing}"
-  local synchProject="${8:?arg8 synchProject missing}"
-  local source_type="${9:?arg9 source_type missing}"
-  local projectID="${10-}"   # <-- optional; empty if not passed
+  cd ${HOME_DIR}/${repoName}
+  #Importing Reference Data
+  DIR="./assets/projectConfigs/parameters/"
+  if [ -d "$DIR" ]; then
+    echo "Project parameters needs to be synched"
+    echod "ProjectID:" ${projectID}
+    cd ./assets/projectConfigs/parameters/
+    if [ -d "$d" ]; then
+      echod "$d"
+      cd "$d"
+      if [ ! -f ./metadata.json ]; then
+        echo "Metadata not found!"
+        exit 1
+      fi
+      parameterUID=`jq -r '.uid' ./metadata.json | tr -d '\n\t'`
+      echod "Picked from Metadata: "$parameterUID
 
-  cd "${HOME_DIR}/${repoName}"
+      PROJECT_PARAM_GET_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params/${parameterUID}
+      echod ${PROJECT_PARAM_GET_URL}
+      ppListJson=$(curl --location --request GET ${PROJECT_PARAM_GET_URL}  \
+        --header 'Content-Type: application/json' \
+        --header 'Accept: application/json' \
+        -u ${admin_user}:${admin_password})
 
-  local DIR="./assets/projectConfigs/parameters/"
-  if [[ ! -d "$DIR" ]]; then
+      # CHANGE 1: use -r so ppExport is not quoted
+      ppExport=$(echo "$ppListJson" | jq -r '.output.uid // empty')
+      echod ${ppExport}
+
+      if [ -z "$ppExport" ]; then
+        echo "Project parameters does not exists, creating ..:"
+        PROJECT_PARAM_CREATE_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params
+        echod ${PROJECT_PARAM_CREATE_URL}
+        parameterJSON=`jq -c '.' ./*_${source_type}.json`
+
+        echod "Param JSON: "${parameterJSON}
+        echod "curl --location --request POST ${PROJECT_PARAM_CREATE_URL}  \
+        --header 'Content-Type: application/json' \
+        --header 'Accept: application/json' \
+        --data-raw "$parameterJSON" -u ${admin_user}:${admin_password})"
+        
+        ppCreateJson=$(curl --location --request POST ${PROJECT_PARAM_CREATE_URL}  \
+          --header 'Content-Type: application/json' \
+          --header 'Accept: application/json' \
+          --data-raw "$parameterJSON" -u ${admin_user}:${admin_password})
+        ppCreatedJson=$(echo "$ppCreateJson" | jq '.output.uid // empty')
+        if [ -z "$ppCreatedJson" ]; then
+          echo "Project Paraters Creation failed:" ${ppCreateJson}
+        else
+          echo "Project Paraters Creation Succeeded, UID:" ${ppCreatedJson}
+        fi
+      else
+        echo "Project parameters does exists, updating ..:"
+        PROJECT_PARAM_UPDATE_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params/${parameterUID}
+        echod ${PROJECT_PARAM_UPDATE_URL}
+
+        # CHANGE 2: replace the hanging 'jq -c .' with a safe, piped debug
+        echo "$ppListJson" | jq -c .
+
+        parameterJSON=`jq -c '.' ./*_${source_type}.json`
+        echod "Param: "${parameterJSON}
+        ppUpdateJson=$(curl --location --request PUT ${PROJECT_PARAM_UPDATE_URL}  \
+          --header 'Content-Type: application/json' \
+          --header 'Accept: application/json' \
+          -d ${parameterJSON} -u ${admin_user}:${admin_password})
+        ppUpdatedJson=$(echo "$ppUpdateJson" | jq '.output.uid // empty')
+        if [ -z "$ppUpdatedJson" ]; then
+          echo "Project Paraters Update failed:" ${ppUpdateJson}
+        else
+          echo "Project Paraters Update Succeeded, UID:" ${ppUpdatedJson}
+        fi       
+      fi
+    else
+      echo "Invalid Project Parameter / Asset Id to import."
+    fi
+  else 
     echo "No Project Parameters to import."
-    return 0
-  fi
-
-  echo "Project parameters needs to be synched"
-  [[ -n "$projectID" ]] && echod "ProjectID: ${projectID}"
-  cd "$DIR"
-
-  if [[ ! -d "$assetID" ]]; then
-    echo "Invalid Project Parameter / Asset Id to import."
-    return 1
-  fi
-
-  echod "$assetID"
-  cd "$assetID"
-
-  if [[ ! -f ./metadata.json ]]; then
-    echo "Metadata not found!"
-    return 1
-  fi
-
-  # Read parameter UID from metadata
-  local parameterUID
-  parameterUID="$(jq -r '.uid // empty' ./metadata.json | tr -d $'\n\t')"
-  echod "Picked from Metadata: ${parameterUID}"
-
-  local PROJECT_PARAM_GET_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params/${parameterUID}"
-  echod "$PROJECT_PARAM_GET_URL"
-
-  # Helper to run sensitive commands with xtrace off
-  _with_secret() { local x=0; [[ $- == *x* ]] && x=1 && set +x; "$@"; local rc=$?; ((x)) && set -x; return $rc; }
-
-  # GET existing param (timeouts; treat non-2xx as "not found")
-  local ppListJson=""
-  _with_secret bash -c 'pp="$(
-    curl -sS --connect-timeout 10 --max-time 60 --location \
-      --request GET "'"$PROJECT_PARAM_GET_URL"'" \
-      --header "Content-Type: application/json" \
-      --header "Accept: application/json" \
-      -u "'"$admin_user"':'"$admin_password"'" || true
-  )"; printf "%s" "$pp"' | read -r ppListJson
-
-  local ppExport
-  ppExport="$(jq -r '.output.uid // empty' <<<"${ppListJson:-}")"
-  echod "$ppExport"
-
-  # Payload we want to apply
-  local parameterJSON
-  parameterJSON="$(jq -c '.' ./*_"$source_type".json)"
-  echod "Param: $(jq -c . <<<"$parameterJSON")"
-
-  if [[ -z "$ppExport" ]]; then
-    echo "Project parameters does not exist, creating…"
-    local PROJECT_PARAM_CREATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params"
-    echod "$PROJECT_PARAM_CREATE_URL"
-
-    local ppCreateJson
-    _with_secret bash -c 'out="$(
-      curl -sS --fail-with-body --connect-timeout 10 --max-time 60 \
-        --location --request POST "'"$PROJECT_PARAM_CREATE_URL"'" \
-        --header "Content-Type: application/json" \
-        --header "Accept: application/json" \
-        --data-raw "'"$parameterJSON"'" \
-        -u "'"$admin_user"':'"$admin_password"'"
-    )"; printf "%s" "$out"' | read -r ppCreateJson
-
-    local ppCreatedUid
-    ppCreatedUid="$(jq -r '.output.uid // empty' <<<"$ppCreateJson")"
-    if [[ -z "$ppCreatedUid" ]]; then
-      echo "Project Parameters Creation failed: $ppCreateJson"
-      return 1
-    else
-      echo "Project Parameters Creation Succeeded, UID: $ppCreatedUid"
-    fi
-
-  else
-    echo "Project parameters exists, updating…"
-    local PROJECT_PARAM_UPDATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/params/${parameterUID}"
-    echod "$PROJECT_PARAM_UPDATE_URL"
-
-    local ppUpdateJson
-    _with_secret bash -c 'out="$(
-      curl -sS --fail-with-body --connect-timeout 10 --max-time 60 \
-        --location --request PUT "'"$PROJECT_PARAM_UPDATE_URL"'" \
-        --header "Content-Type: application/json" \
-        --header "Accept: application/json" \
-        --data-raw "'"$parameterJSON"'" \
-        -u "'"$admin_user"':'"$admin_password"'"
-    )"; printf "%s" "$out"' | read -r ppUpdateJson
-
-    local ppUpdatedUid
-    ppUpdatedUid="$(jq -r '.output.uid // empty' <<<"$ppUpdateJson")"
-    if [[ -z "$ppUpdatedUid" ]]; then
-      echo "Project Parameters Update failed: $ppUpdateJson"
-      return 1
-    else
-      echo "Project Parameters Update Succeeded, UID: $ppUpdatedUid"
-    fi
-  fi
+  fi 
 }
 
 
