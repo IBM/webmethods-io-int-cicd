@@ -143,7 +143,7 @@ steps:
   displayName: 'Remove the Export after successfull Commit'
 - task: TriggerBuild@4
   inputs:
-    buildDefinition: 'Test'
+    buildDefinition: 'initiateTesting'
     useSameBranch: true
     storeInEnvironmentVariable: true
     authenticationMethod: 'OAuth Token'
