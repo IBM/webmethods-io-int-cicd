@@ -246,7 +246,7 @@ function importSingleProjectParameters(){
 
         # CHANGE 2: replace the hanging 'jq -c .' with a safe, piped debug
         echo "$ppListJson" | jq -c .
-
+        echod "Files here: $(ls -1)"
         # prefer env-specific file; else use the first *.json
         if compgen -G "./*_${source_type}.json" > /dev/null; then
           param_file="$(ls -1 ./*_"$source_type".json | head -n1)"
