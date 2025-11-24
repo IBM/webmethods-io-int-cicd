@@ -134,7 +134,7 @@ function importAsset() {
     else
       formKey="recipe=@"${FILE}
     fi
-    overwriteKey="overwrite=true"
+    overwriteKey='overwrite="true"'
     echod ${formKey}
     if [ -f "$FILE" ]; then
      ####### Check if asset with this name exist
