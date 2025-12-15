@@ -342,6 +342,52 @@ function exportAsset(){
                 cd ./assets/dafservices
                 echo "DAFservice Export:" ${EXPORT_URL}
                 echod $(ls -ltr)
+              else
+                if [[ $assetType = soap_api* ]]; then
+                  EXPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/export
+                  soap_api_json="{\"soap_api\": [\"${assetID}\"]}"
+                  cd ${HOME_DIR}/${repoName}
+                  mkdir -p ./assets/soap_api
+                  cd ./assets/soap_api
+                  echod "SOAP_API Export:" ${EXPORT_URL} "with JSON: "${soap_api_json}
+                  echod $(ls -ltr)
+                else
+                  if [[ $assetType = Scheduler* ]]; then
+                    echo "Calling another script"
+                    echod "SCHEDULER Export Process is Start"
+                    ../self/pipelines/scripts/exportSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                    echod "SCHEDULER Export Process is End"
+                    echod $(ls -ltr)
+                    return
+                  else
+                    if [[ $assetType = project_configuration* ]]; then
+                      echo "Calling project configuration script"
+                      echod "Project Configuration Export Process is Start"
+                      ../self/pipelines/scripts/exportProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                      echod "project configuration Export Process is End"
+                      echod $(ls -ltr)
+                      return
+                    else
+                      if [[ $assetType = project_variable* ]]; then
+                        echo "Calling project variable script"
+                        echod "Project variable Export Process is Start"
+                        ../self/pipelines/scripts/exportProjectVariable.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                        echod "project variable Export Process is End"
+                        echod $(ls -ltr)
+                        return
+                      else
+                        if [[ $assetType = certificate* ]]; then
+                          echo "Calling project Certificate script"
+                          echod "Project Certificate Export Process is Start"
+                          ../self/pipelines/scripts/exportCertificatesList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                          echod "project Certificate Export Process is End"
+                          echod $(ls -ltr)
+                          return
+                        fi
+                      fi
+                    fi
+                  fi
+                fi	
               fi
             fi
           fi
@@ -352,12 +398,21 @@ function exportAsset(){
         --header 'Content-Type: application/json' \
         --header 'Accept: application/json' \
         --data-raw "$rest_api_json" -u ${admin_user}:${admin_password})
-      else     
-        linkJson=$(curl  --location --request POST ${EXPORT_URL} \
-        --header 'Content-Type: application/json' \
-        --header 'Accept: application/json' \
-        -u ${admin_user}:${admin_password})
-      fi
+		else
+			if [[ $assetType = soap_api* ]]; then
+			linkJson=$(curl  --location --request POST ${EXPORT_URL} \
+			--header 'Content-Type: application/json' \
+			--header 'Accept: application/json' \
+			--data-raw "$soap_api_json" -u ${admin_user}:${admin_password})
+		else     
+			linkJson=$(curl  --location --request POST ${EXPORT_URL} \
+			--header 'Content-Type: application/json' \
+			--header 'Accept: application/json' \
+			-u ${admin_user}:${admin_password})
+          fi
+        fi
+	  fi
+     if [ -n "$linkJson" ] && [ "$linkJson" != "null" ]; then
       downloadURL=$(echo "$linkJson" | jq -r '.output.download_link')
       
       regex='(https?|ftp|file)://[-[:alnum:]\+&@#/%?=~_|!:,.;]*[-[:alnum:]\+&@#/%=~_|]'
@@ -376,6 +431,9 @@ function exportAsset(){
       else
           echo "Download failed:"${downloadJson}
       fi
+      
+      fi
+
       # For Single assetType Flowservice Export Reference Data
       if [ ${synchProject} != true ]; then
         if [[ $assetType = flowservice* ]]; then
@@ -383,8 +441,7 @@ function exportAsset(){
             exportReferenceData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR}
           fi
         fi
-      fi
-    fi 
+      fi 
   cd ${HOME_DIR}/${repoName}
 
 }  
@@ -402,9 +459,8 @@ function splitAndExportAssets() {
   local assetNameList="$5"
   local assetTypeList="$6"
 
-  # Desired processing order
-  local desiredOrder=("referenceData" "rest_api" "project_parameter" "workflow" "flowservice" "dafservice")
-
+   local desiredOrder=("referenceData" "rest_api" "soap_api" "project_parameter" "workflow" "flowservice" "dafservice" "Scheduler" "project_configuration" "project_variable" "certificate" "account" "connection" "vault_variables")
+  # local desiredOrder=("referenceData" "rest_api" "project_parameter" "workflow" "flowservice" "dafservice" "project_configuration")
   # Normalize input: remove spaces around commas
   assetNameList=$(echo "$assetNameList" | sed 's/ *, */,/g')
   assetTypeList=$(echo "$assetTypeList" | sed 's/ *, */,/g')
@@ -561,7 +617,14 @@ if [ ${synchProject} == true ]; then
     echod $assetID
     exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
   done
-
+  # Exporting Soap APIs
+  for item in $(jq  -c -r '.output.soap_api[]' <<< "$projectListJson"); do
+    echod "Inside SOAP_API Loop"
+    assetID=$item
+    assetType=soap_api
+    echod $assetID
+    exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  done
 
   #Expoting Accounts
   ACCOUNT_LIST_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/accounts
@@ -598,6 +661,26 @@ if [ ${synchProject} == true ]; then
   # Exporting Project Parameters
   #PP Export
   assetType=project_parameter
+  exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  
+  # For Export Scheduler
+  assetID=${assetIDList}
+  assetType=Scheduler
+  exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        
+  # For Export Project Configuration
+  assetID=${assetIDList}
+  assetType=project_configuration
+  exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  
+  # For Export Project Variable
+  assetID=${assetIDList}
+  assetType=project_variable
+  exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  
+  # For Export Certificate
+  assetID=${assetIDList}
+  assetType=certificate
   exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
   
 else
