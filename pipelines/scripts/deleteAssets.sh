@@ -72,13 +72,43 @@ function deleteAsset(){
 
  
   if [[ $assetType = workflow* ]]; then
-      echod $assetType
-      DELETE_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/workflows/${assetID}
-      echod "Workflow Delete:" ${DELETE_URL}
+    echod $assetType
+    DELETE_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/workflows/${assetID}
+    echod "Workflow Delete:" ${DELETE_URL}
   else
     if [[ $assetType = flowservice* ]]; then
       DELETE_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/flows/${assetID}
       echod "Flowservice Delete:" ${DELETE_URL}
+    else
+      if [[ $assetType = account* ]]; then
+        echod "account delete Process is Start"
+        ../self/pipelines/scripts/deleteAccount.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+        echod "ACCOUNT delete Process is End"
+      else
+        if [[ $assetType = project_parameter* ]]; then
+          echod "project_parameter delete Process is Start"
+          ../self/pipelines/scripts/deleteProjectParameter.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          echod "PROJECT_PARAMETER delete Process is End"
+        fi
+
+        if [[ $assetType = referenceData* ]]; then
+          echod "referenceData delete Process is Start"
+          ../self/pipelines/scripts/deleteReferenceData.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          echod "REFERENCE_DATA delete Process is End"
+        fi
+
+        if [[ $assetType = Scheduler* ]]; then
+          echod "Scheduler delete Process is Start"
+          ../self/pipelines/scripts/deleteScheduler.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          echod "SCHEDULER delete Process is End"
+        fi
+
+        if [[ $assetType = vault_variables* ]]; then
+          echod "Vault Variables delete Process is Start"
+          ../self/pipelines/scripts/deleteVaultVariablesList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          echod "VAULT_VARIABLES delete Process is End"
+        fi
+      fi
     fi
   fi
 
