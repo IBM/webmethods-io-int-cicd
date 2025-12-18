@@ -87,7 +87,7 @@ function deleteAsset(){
       else
         if [[ $assetType = project_parameter* ]]; then
           echod "project_parameter delete Process is Start"
-          ../self/pipelines/scripts/deleteProjectParameter.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          ../self/pipelines/scripts/deleteProjectParameters.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
           echod "PROJECT_PARAMETER delete Process is End"
         fi
 
@@ -99,7 +99,7 @@ function deleteAsset(){
 
         if [[ $assetType = Scheduler* ]]; then
           echod "Scheduler delete Process is Start"
-          ../self/pipelines/scripts/deleteScheduler.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
+          ../self/pipelines/scripts/deleteSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$HOME_DIR" "$repoName" "$assetID"
           echod "SCHEDULER delete Process is End"
         fi
 
@@ -170,5 +170,4 @@ fi
 
 
 set +x
-
 
