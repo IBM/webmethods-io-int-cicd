@@ -28,6 +28,9 @@ sp_password=${20}            # Service Principal password (aka client_secret)
 access_object_id=${21}
 debug=${@: -1}
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/secretManager.sh"
+
 # Validate required inputs
 [ -z "$LOCAL_DEV_URL" ] && echo "Missing template parameter LOCAL_DEV_URL" >&2 && exit 1
 [ -z "$admin_user" ] && echo "Missing template parameter admin_user" >&2 && exit 1
@@ -62,71 +65,6 @@ fi
 function echod() {
   echo "$@" >&2
 }
-
-
-function maskFieldsInJson() {
-  local json_input="$1"
-  local key="$2"
-  shift 2                                 # ← FIX: drop first TWO args
-  local fields=("$@")
-  local masked_json="$json_input"
-
-  # Auto-pick fields when caller doesn't pass any
-  if [[ ${#fields[@]} -eq 0 ]]; then
-    local acct_type
-    acct_type="$(echo "$json_input" | jq -r '.sourceMetadata.providerName // .sourceMetadata.connectorType // .type // empty')"
-    case "$acct_type" in
-      google_sheet|oauth2)
-        fields=(client_id client_secret access_token refresh_token)
-        ;;
-      WmRESTProvider|CustomREST)
-        fields=("oauth.consumerId" "oauth.consumerSecret" "oauth.accessToken" "oauth_v20.refreshToken")
-        ;;
-      *)
-        echod "ℹ️ Unknown account type '$acct_type' – no auto fields; pass list to mask."
-        ;;
-    esac
-  fi
-
-  for field in "${fields[@]}"; do
-    # Find all paths whose LAST key equals the field (works for dotted keys too)
-    mapfile -t paths < <(echo "$masked_json" \
-      | jq -r "paths | select( (.[-1]|type)==\"string\" and (.[-1] == \"$field\") ) | @json")
-
-    if [[ ${#paths[@]} -eq 0 ]]; then
-      echod "🔍 Field '$field' not found, skipping..."
-      continue
-    fi
-
-    for path in "${paths[@]}"; do
-      # Extract value
-      value=$(echo "$masked_json" | jq -r "getpath($path)")
-
-      # Store secret per env
-      IFS=, read -ra values <<< "$envTypes"
-      for v in "${values[@]}"; do
-        fullSecretName="Project-${repoName}-Account-${key}-Field-${field}-Env-${v}"
-        fullSecretName=$(echo "$fullSecretName" | sed 's/[_.]/-/g')   # dots/underscores → '-'
-        if [ "$provider" == "azure" ]; then
-          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$fullSecretName" "$value" "$vaultName" unused unused "$HOME_DIR" debug
-        else
-          "$HOME_DIR/self/pipelines/scripts/putSecrets.sh" "$provider" "$fullSecretName" "$value" "$repoUser" "$repoName" "$PAT" "$HOME_DIR" debug
-        fi
-        # Track masked field in YAML
-        yq eval -i \
-          ".project.accounts.\"${key}\".secrets = ((.project.accounts.\"${key}\".secrets // []) + [\"${field}\"] | unique)" \
-          "$PROJECT_CONFIG_FILE"
-      done
-
-      # Mask in JSON
-      masked_json=$(echo "$masked_json" | jq "setpath($path; \"****MASKED****\")")
-    done
-  done
-
-  echo "$masked_json"
-}
-
-
 
 function exportSingleReferenceData () {
   LOCAL_DEV_URL=$1
@@ -206,8 +144,7 @@ function exportConnection(){
             name=$(echo "$item" | jq -r '.name')
             mkdir -p ./$name
             cd $name
-            #maskedJson=$(maskFieldsInJson "$item" "$name" client_id client_secret access_token refresh_token)
-            maskedJson=$(maskFieldsInJson "$item" "$name")
+            maskedJson=$(maskFieldsInJson "$item" "$name" "$repoName" "$source_type" "$provider" "$vaultName" "$HOME_DIR" "$envTypes")
 
             echo "$maskedJson" > ${name}_${source_type}.json
             configPerEnv . ${envTypes} "connection" ${name}_${source_type}.json $name

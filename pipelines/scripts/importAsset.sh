@@ -26,6 +26,9 @@ sp_password=${17}            # Service Principal password (aka client_secret)
 access_object_id=${18}
 debug=${@: -1}
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/secretManager.sh"
+
 
 
 # Validate required inputs
@@ -469,41 +472,6 @@ function importConnections(){
   cd "${HOME_DIR}/${repoName}" || exit 1
 }
 
-function unmaskFieldsInJson() {
-  local json_input="$1"
-  local account_name="$2"
-  local repo_name="$3"
-  local env="$4"
-  local HOME_DIR="$5"
-  local provider="$6"
-  local vaultName="$7"   # Vault name (Azure) or repoUser (GitHub/Bitbucket)
-
-  local project_config_file="$HOME_DIR/$repo_name/project-config.yml"
-  local unmasked_json="$json_input"
-
-  # Read secrets list for this account from YAML
-  mapfile -t fields < <(yq eval ".project.accounts.\"$account_name\".secrets[]" "$project_config_file")
-
-  for field in "${fields[@]}"; do
-    fullSecretName="Project-${repo_name}-Account-${account_name}-Field-${field}-Env-${env}"
-    fullSecretName=$(echo "$fullSecretName" | sed 's/_/-/g')
-
-    secret_value=$("$HOME_DIR/self/pipelines/scripts/getSecret.sh" "$provider" "$fullSecretName" "$vaultName" "$HOME_DIR" "$debug")
-
-    if [[ -z "$secret_value" || "$secret_value" == "null" ]]; then
-      echo "⚠️  Secret not found for $fullSecretName. Skipping."
-      continue
-    fi
-
-    unmasked_json=$(echo "$unmasked_json" | jq --arg field "$field" --arg secret "$secret_value" '
-      (.. | objects | select(has($field)) | select(.[ $field ] == "****MASKED****"))[$field] |= $secret
-    ')
-  done
-
-  echo "$unmasked_json"
-}
-
-
 function importSingleConnection(){
   LOCAL_DEV_URL=$1
   admin_user=$2
@@ -527,7 +495,7 @@ function importSingleConnection(){
     base_name=$(basename "$matching_file" .json)
     echod "📦 Importing connection: $base_name from account folder: $account_name"
     # 🛡️ Unmask the JSON before import
-    unmasked_json=$(unmaskFieldsInJson "$(cat "$matching_file")" "$account_name" "${repoName}" "${source_type}" "${HOME_DIR}" "$provider" "$vaultName")
+    unmasked_json=$(unmaskFieldsInJson "$(cat "$matching_file")" "$account_name" "${repoName}" "${source_type}" "$provider" "$vaultName" "${HOME_DIR}")
 
     CONN_GET_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/configurations/connections
     getresponse=$(curl --silent --location --request GET "$CONN_GET_URL" \
