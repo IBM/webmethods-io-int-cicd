@@ -154,19 +154,15 @@ fi
           git push -u origin production
 
           git checkout -b dev production
-          git commit -m "first commit"
           git push -u origin dev
 
           git checkout -b qa production
-          git commit -m "first commit"
           git push -u origin qa
           
           git checkout -b codeReview production
-          git commit -m "first commit"
           git push -u origin codeReview
 
           git checkout -b ${featureBranchName} production
-          git commit -m "first commit"
           git push -u origin ${featureBranchName}
 
           #Enable Actions
