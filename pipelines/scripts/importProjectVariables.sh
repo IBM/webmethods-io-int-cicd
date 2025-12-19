@@ -79,8 +79,8 @@ function importProjectVariables() {
       echo "$ProjectVariablessImportCreatedJson"
     fi
   else
-    echo "❌ Missing Project Variables file: ${individual_file}"
-    return 1
+    echo "⚠️  Missing Project Variables file, skipping: ${individual_file}"
+    return 0
   fi
 }
 

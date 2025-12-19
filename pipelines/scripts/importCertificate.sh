@@ -79,8 +79,8 @@ function importCertificate() {
       echo "$CertificatesImportCreatedJson"
     fi
   else
-    echo "❌ Missing Certificate file: ${individual_file}"
-    return 1
+    echo "⚠️  Missing Certificate file, skipping: ${individual_file}"
+    return 0
   fi
 }
 

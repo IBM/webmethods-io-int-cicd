@@ -49,8 +49,8 @@ function importSingleScheduler() {
   scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers/SchedulersKeyList.json"
 
   if [ ! -f "$scheduler_file" ]; then
-    echo "❌ Scheduler file not found: $scheduler_file"
-    return 1
+    echo "⚠️  Scheduler file not found, skipping: $scheduler_file"
+    return 0
   fi
 
   echod "✅ Scheduler file found: ${scheduler_file}"
@@ -166,8 +166,8 @@ function importScheduler() {
       echo "$SchedulersImportCreatedJson"
     fi
   else
-    echo "❌ Missing schedulers file: ${schedulersList_file}"
-    return 1
+    echo "⚠️  Missing schedulers file, skipping: ${schedulersList_file}"
+    return 0
   fi
 }
 
@@ -184,8 +184,8 @@ function projectImportschedulers() {
   scheduler_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers"
 
   if [ ! -d "$scheduler_dir" ]; then
-    echo "❌ Scheduler config folder not found at: $scheduler_dir"
-    return 1
+    echo "⚠️  Scheduler config folder not found, skipping: $scheduler_dir"
+    return 0
   fi
 
   if [ "$SINGLE_SCHEDULER" == "true" ]; then
