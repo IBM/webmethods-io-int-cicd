@@ -52,11 +52,10 @@ gitHubApiURL=https://api.github.com/
       exit 1
     fi
    
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......"
-fi
+    if [ "$debug" == "debug" ]; then
+      echo "......Running in Debug mode ......"
+    fi
 
-set -euo pipefail
 set -x
 function echod(){
   
@@ -68,36 +67,8 @@ function echod(){
 }
 
 
-repo_status_file=$(mktemp)
-repo_body_file=$(mktemp)
-curl -s -w "%{http_code}" -o "${repo_body_file}" -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} > "${repo_status_file}" || true
-repo_status=$(cat "${repo_status_file}")
-repo_resp=$(cat "${repo_body_file}")
-name=$(echo "${repo_resp:-}" | jq -r '.name')
-repoid=$(echo "${repo_resp:-}" | jq -r '.id')
-echo "Repo GET status: ${repo_status}"
-if [ "${repo_status}" = "401" ]; then
-  echo "❌ GitHub auth failed (401) for ${repo_user}. Check PAT."
-  exit 1
-fi
-
-if [ "${repo_status}" = "200" ]; then
-      echo ${name}
-      if [ "$name" == null ]; then
-          echo "Repo lookup returned 200 but name null; treating as missing."
-      else
-          echo "Repo already exixts with name:" ${name}
-          echo "##vso[task.setvariable variable=init]false"
-          exit 0
-      fi
-fi
-
-if [ "${repo_status}" != "404" ] && [ "${repo_status}" != "200" ]; then
-  echo "❌ Unexpected status ${repo_status} when checking repo. Body:"
-  echo "${repo_resp}"
-  exit 1
-fi
-
+name=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.name')
+repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
       echo ${name}
       if [ "$name" == null ]
       then
@@ -106,13 +77,8 @@ fi
           cd ${repoName}
 
           #### Create empty repo & SECRET
-          curl -sf -u ${repo_user}:${PAT} https://api.github.com/user/repos -d '{"name":"'${repoName}'"}'
-          repo_resp=$(curl -sf -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName})
-          repoid=$(echo "$repo_resp" | jq -r '.id')
-          if [ -z "${repoid}" ] || [ "${repoid}" == "null" ]; then
-            echo "❌ Failed to create repo ${repoName} (repo id empty)."
-            exit 1
-          fi
+          curl -u ${repo_user}:${PAT} https://api.github.com/user/repos -d '{"name":"'${repoName}'"}'
+          repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
 
           keyJson=$(curl -u ${repo_user}:${PAT} --location --request GET https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/public-key \
           --header 'X-GitHub-Api-Version: 2022-11-28' \
