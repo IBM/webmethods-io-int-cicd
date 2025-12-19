@@ -52,10 +52,11 @@ gitHubApiURL=https://api.github.com/
       exit 1
     fi
    
-    if [ "$debug" == "debug" ]; then
-      echo "......Running in Debug mode ......"
-    fi
+if [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......"
+fi
 
+set -euo pipefail
 set -x
 function echod(){
   
@@ -67,8 +68,9 @@ function echod(){
 }
 
 
-name=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.name')
-repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
+repo_resp=$(curl -sf -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName})
+name=$(echo "${repo_resp:-}" | jq -r '.name')
+repoid=$(echo "${repo_resp:-}" | jq -r '.id')
       echo ${name}
       if [ "$name" == null ]
       then
@@ -77,10 +79,15 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/$
           cd ${repoName}
 
           #### Create empty repo & SECRET
-          curl -u ${repo_user}:${PAT} https://api.github.com/user/repos -d '{"name":"'${repoName}'"}'
-          repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
+          curl -sf -u ${repo_user}:${PAT} https://api.github.com/user/repos -d '{"name":"'${repoName}'"}'
+          repo_resp=$(curl -sf -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName})
+          repoid=$(echo "$repo_resp" | jq -r '.id')
+          if [ -z "${repoid}" ] || [ "${repoid}" == "null" ]; then
+            echo "❌ Failed to create repo ${repoName} (repo id empty)."
+            exit 1
+          fi
 
-          keyJson=$(curl -u ${repo_user}:${PAT} --location --request GET https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/public-key \
+          keyJson=$(curl -sf -u ${repo_user}:${PAT} --location --request GET https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/public-key \
           --header 'X-GitHub-Api-Version: 2022-11-28' \
           --header 'Accept: application/vnd.github+json')
 
@@ -93,7 +100,7 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/$
 
           secretJson='{"encrypted_value":"'"${encryptedValue}"'","key_id":"'"${keyId}"'"}'
           
-          curl \
+          curl -sf \
             -X PUT \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -138,18 +145,18 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/$
           git push -u origin ${featureBranchName}
 
           #Enable Actions
-           curl -u ${repo_user}:${PAT} -L -X PUT \
+           curl -sf -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/orgs/${repo_user}/actions/permissions/repositories/${repoid}
 
           #Enable workflow
-           curl -u ${repo_user}:${PAT} -L -X PUT \
+           curl -sf -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
              https://api.github.com/repos/${repo_user}/${repoName}/actions/workflows/dev.yml/enable
 
-           curl -u ${repo_user}:${PAT} -L -X PUT \
+           curl -sf -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
              https://api.github.com/repos/${repo_user}/${repoName}/actions/workflows/codereview.yml/enable
