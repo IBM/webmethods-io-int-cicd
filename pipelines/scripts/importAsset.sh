@@ -36,8 +36,8 @@ source "${SCRIPT_DIR}/secretManager.sh"
 [ -z "$admin_user" ] && echo "Missing template parameter admin_user" >&2 && exit 1
 [ -z "$admin_password" ] && echo "Missing template parameter admin_password" >&2 && exit 1
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
-[ -z "$assetIDList" ] && echo "Missing template parameter assetIDList" >&2 && exit 1
-[ -z "$assetTypeList" ] && echo "Missing template parameter assetTypeList" >&2 && exit 1
+[ "$synchProject" != "true" ] && [ -z "$assetIDList" ] && echo "Missing template parameter assetIDList" >&2 && exit 1
+[ "$synchProject" != "true" ] && [ -z "$assetTypeList" ] && echo "Missing template parameter assetTypeList" >&2 && exit 1
 [ -z "$HOME_DIR" ] && echo "Missing template parameter HOME_DIR" >&2 && exit 1
 [ -z "$synchProject" ] && echo "Missing template parameter synchProject" >&2 && exit 1
 [ -z "$source_type" ] && echo "Missing template parameter source_type" >&2 && exit 1
