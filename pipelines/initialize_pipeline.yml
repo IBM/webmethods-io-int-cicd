@@ -87,7 +87,7 @@ steps:
         ./self/pipelines/scripts/github/initializeRepo.sh $(repo_user) $(PAT) $(AZURE_TOKEN) $(repoName) $(devUser) $(featureBranchName) ${HOME_DIR} debug
 
   displayName: 'Create a repo and required branches'
-  
+  condition: succeeded()
 - script: |
       cd ../
       LOCAL_DEV_URL=https://$(source_environment_hostname):$(source_environment_port)
@@ -153,6 +153,6 @@ steps:
           fi
       fi
   displayName: 'Create / Sychronize the projects'
-  
+  condition: succeeded()
 
   
