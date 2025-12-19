@@ -83,6 +83,13 @@ steps:
       ########GitHub 
         HOME_DIR=$(System.DefaultWorkingDirectory)/../
 
+        # Fail fast if GitHub auth is bad (401) so we don't proceed to project creation
+        status=$(curl -s -o /tmp/repo_check.json -w "%{http_code}" -u $(repo_user):$(PAT) https://api.github.com/repos/$(repo_user)/$(repoName))
+        if [ "$status" = "401" ]; then
+          echo "GitHub auth failed (401) for $(repo_user). Check PAT."
+          exit 1
+        fi
+
         chmod +x ./self/pipelines/scripts/github/*.sh
         ./self/pipelines/scripts/github/initializeRepo.sh $(repo_user) $(PAT) $(AZURE_TOKEN) $(repoName) $(devUser) $(featureBranchName) ${HOME_DIR} debug
 
