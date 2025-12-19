@@ -57,6 +57,7 @@ steps:
     echo "##vso[task.setvariable variable=admin_user]`yq -e ".tenant.admin_username" configs/env/play.yml`"
     echo "##vso[task.setvariable variable=source_type]`yq -e ".tenant.type" configs/env/play.yml`"
     echo "##vso[task.setvariable variable=repo_user]`yq -e ".repo.user" configs/repo.yml`"
+    echo "##vso[task.setvariable variable=provider]`yq -e '.security.provider // \"azure\"' configs/repo.yml`"
 
     echo "##vso[build.updatebuildnumber]$(Build.BuildNumber)-$(repoName)"
     echo $(System.DefaultWorkingDirectory)
@@ -100,6 +101,7 @@ steps:
       LOCAL_DEV_URL=https://$(source_environment_hostname):$(source_environment_port)
       echo ${LOCAL_DEV_URL}
       HOME_DIR=$(System.DefaultWorkingDirectory)/../
+      : ${provider:=azure}
       if [ $(init) == true ]; then
         echo "New repo created"
         ######## Check & Create Project 
@@ -146,7 +148,7 @@ steps:
               # Project Check
               chmod +x ../self/pipelines/scripts/*.sh
               echo "Check and create Project ..."
-              project_id=$(./self/pipelines/scripts/createProject.sh \
+              project_id=$(../self/pipelines/scripts/createProject.sh \
               "${LOCAL_DEV_URL}" \
               "$(admin_user)" \
               "$(admin_password)" \
@@ -154,7 +156,7 @@ steps:
               echo "Captured Project ID: [$project_id]"
               # Import (align with synchronizeDEV: include provider/Azure params)
               echo "Importing asset ..."
-              ../self/pipelines/scripts/importAsset.sh "${LOCAL_DEV_URL}" "$(admin_user)" "$(admin_password)" "$(repoName)" "$(assetIDList)" "$(assetTypeList)" "${HOME_DIR}" "$(synchProject)" "$(source_type)" true "$(provider)" "$(AZURE_VAULT_NAME)" "$(AZURE_RESOURCE_GROUP)" "$(AZURE_LOCATION)" "$(AZURE_TENANT_ID)" "$(AZURE_CLIENT_ID)" "$(AZURE_CLIENT_SECRET)" "$(AZURE_ACCESS_OBJECT_ID)" "debug"
+              ../self/pipelines/scripts/importAsset.sh "${LOCAL_DEV_URL}" "$(admin_user)" "$(admin_password)" "$(repoName)" "$(assetIDList)" "$(assetTypeList)" "${HOME_DIR}" "$(synchProject)" "$(source_type)" true "${provider}" "$(AZURE_VAULT_NAME)" "$(AZURE_RESOURCE_GROUP)" "$(AZURE_LOCATION)" "$(AZURE_TENANT_ID)" "$(AZURE_CLIENT_ID)" "$(AZURE_CLIENT_SECRET)" "$(AZURE_ACCESS_OBJECT_ID)" "debug"
           
               
           fi
