@@ -73,6 +73,22 @@ function importAsset() {
   synchProject=$8
   includeAllReferenceData=$9
 
+  # Normalize NA/empty when doing full project sync
+  if [ "$synchProject" = "true" ]; then
+    if [ "$assetID" = "NA" ] || [ "$assetID" = "na" ] || [ "$assetID" = "Na" ] || [ "$assetID" = "nA" ]; then
+      assetID=""
+    fi
+    if [ "$assetType" = "NA" ] || [ "$assetType" = "na" ] || [ "$assetType" = "Na" ] || [ "$assetType" = "nA" ]; then
+      assetType=""
+    fi
+    if [ "$assetIDList" = "NA" ] || [ "$assetIDList" = "na" ] || [ "$assetIDList" = "Na" ] || [ "$assetIDList" = "nA" ]; then
+      assetIDList=""
+    fi
+    if [ "$assetTypeList" = "NA" ] || [ "$assetTypeList" = "na" ] || [ "$assetTypeList" = "Na" ] || [ "$assetTypeList" = "nA" ]; then
+      assetTypeList=""
+    fi
+  fi
+
   echod $(pwd)
   echod $(ls -ltr)
   echod "AssetType:" $assetType
