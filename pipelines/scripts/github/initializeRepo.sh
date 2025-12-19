@@ -68,12 +68,37 @@ function echod(){
 }
 
 
-repo_resp=$(curl -sf -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName})
+repo_status_file=$(mktemp)
+repo_body_file=$(mktemp)
+curl -s -w "%{http_code}" -o "${repo_body_file}" -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} > "${repo_status_file}" || true
+repo_status=$(cat "${repo_status_file}")
+repo_resp=$(cat "${repo_body_file}")
 name=$(echo "${repo_resp:-}" | jq -r '.name')
 repoid=$(echo "${repo_resp:-}" | jq -r '.id')
+echo "Repo GET status: ${repo_status}"
+if [ "${repo_status}" = "200" ]; then
       echo ${name}
-      if [ "$name" == null ]
-      then
+      if [ "$name" == null ]; then
+          echo "Repo lookup returned 200 but name null; treating as missing."
+      else
+          echo "Repo already exixts with name:" ${name}
+          echo "##vso[task.setvariable variable=init]false"
+          exit 0
+      fi
+fi
+
+if [ "${repo_status}" = "401" ]; then
+  echo "❌ GitHub auth failed (401) for ${repo_user}. Check PAT."
+  exit 1
+fi
+
+if [ "${repo_status}" != "404" ] && [ "${repo_status}" != "200" ]; then
+  echo "❌ Unexpected status ${repo_status} when checking repo. Body:"
+  echo "${repo_resp}"
+  exit 1
+fi
+
+# If here, repo missing
           echo "Repo does not exists, creating ..."
           mkdir -p ${repoName}
           cd ${repoName}
