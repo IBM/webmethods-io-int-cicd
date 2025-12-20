@@ -168,7 +168,7 @@ function importAsset() {
                         if [[ $assetType = certificate* ]]; then
                         echod " project variable Import: "${assetType}
                         ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
-                        cd ${HOME_DIR}/${repoName}/assets/projectConfigs/Certificates
+                        cd ${HOME_DIR}/${repoName}/assets/projectConfigs/certificates
                         echod $(ls -ltr)
                       fi
 				    fi

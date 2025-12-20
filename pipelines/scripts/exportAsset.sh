@@ -316,7 +316,7 @@ function exportAsset(){
                         if [[ $assetType = certificate* ]]; then
                           echo "Calling project Certificate script"
                           echod "Project Certificate Export Process is Start"
-                          ../self/pipelines/scripts/exportCertificatesList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                        ../self/pipelines/scripts/exportCertificatesList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$envTypes" "$source_type" "$debug"
                           echod "project Certificate Export Process is End"
                           echod $(ls -ltr)
                           return

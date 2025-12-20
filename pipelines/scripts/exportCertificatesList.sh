@@ -37,7 +37,8 @@ exportCertificatesList() {
     repoName=$4
     HOME_DIR=$5
     assetID=$6
-    #CERT_TYPE=$7
+    envTypes=${7:-}
+    source_type=${8:-}
     debug=${@: -1}
 
     # Debug mode
@@ -66,27 +67,26 @@ exportCertificatesList() {
             --header 'Accept: application/json' \
             -u "${admin_user}:${admin_password}")
 
-        CertificatesList_file="./assets/projectConfigs/Certificates/CertificatesList.json"
-        mkdir -p ./assets/projectConfigs/Certificates
+        CertificatesList_file="./assets/projectConfigs/certificates/CertificatesList.json"
 
         if [ -z "$CertificatesListJson" ] || [ "$CertificatesListJson" = "null" ]; then
             echo "❌ No Certificates retrieved."
-            return 1
+            return 0
         fi
 
+        mapfile -t cert_entries < <(echo "$CertificatesListJson" | jq -r '.output[]? | [.certificateType, (if .certificateType == "PARTNER_CERTIFICATE" then .name elif .certificateType == "KEY_STORE" then .keyStoreName elif .certificateType == "TRUST_STORE" then .TrustStoreName else empty end)] | @tsv')
+        if [ ${#cert_entries[@]} -eq 0 ]; then
+            echo "ℹ️ No certificates found; skipping export."
+            return 0
+        fi
+
+        mkdir -p ./assets/projectConfigs/certificates
         echo "$CertificatesListJson" | jq '.' > "$CertificatesList_file"
         echo "✅ Certificates List saved to: $CertificatesList_file"
 
-       # Extract and iterate over certificates from "output" array
-        jq -r '.output[]
-            | [.certificateType,
-            (if .certificateType == "PARTNER_CERTIFICATE" then .name
-            elif .certificateType == "KEY_STORE" then .keyStoreName
-            elif .certificateType == "TRUST_STORE" then .TrustStoreName
-            else empty end)
-            ]
-            | @tsv' "$CertificatesList_file" | while IFS=$'\t' read -r CERT_TYPE CERT_NAME; do
-
+        for entry in "${cert_entries[@]}"; do
+            CERT_TYPE=$(echo "$entry" | awk -F'\t' '{print $1}')
+            CERT_NAME=$(echo "$entry" | awk -F'\t' '{print $2}')
             if [[ -n "$CERT_NAME" && -n "$CERT_TYPE" ]]; then
                 echo "🔹 Exporting certificate: $CERT_NAME  (Type: $CERT_TYPE)"
                 exportSingleCertificate "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$CERT_NAME" "$CERT_TYPE"
@@ -130,12 +130,17 @@ function exportSingleCertificate() {
     fi
 
     if echo "$singleCertificateJson" | jq empty 2>/dev/null; then
-        output_dir="./assets/projectConfigs/Certificates"
+        output_dir="./assets/projectConfigs/certificates/${assetID}"
         mkdir -p "$output_dir"
 
-        individual_file="$output_dir/${assetID}_Certificate.json"
-        echo "$singleCertificateJson" | jq '.' > "$individual_file"
-        echo "✅ Saved: $individual_file"
+        base_file="${output_dir}/${assetID}-${source_type}.json"
+        echo "$singleCertificateJson" | jq '.' > "$base_file"
+        echo "✅ Saved: $base_file"
+
+        # replicate per env if provided
+        if [ -n "${envTypes:-}" ]; then
+          configPerEnv "$output_dir" "$envTypes" "certificate" "${assetID}-${source_type}.json" "$assetID"
+        fi
     else
         echo "⚠️ Skipping invalid JSON for assetID: $assetID"
     fi

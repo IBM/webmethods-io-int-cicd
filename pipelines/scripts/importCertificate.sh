@@ -54,7 +54,7 @@ function importCertificate() {
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 
-    output_dir="./assets/projectConfigs/Certificates"
+    output_dir="./assets/projectConfigs/certificates"
     mkdir -p "$output_dir"
 
     individual_file="$output_dir/${assetID}_Certificate.json"
