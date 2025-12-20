@@ -25,6 +25,11 @@ set -o pipefail
 
 echo "Starting importProjectConfiguration.sh"
 echo "Arguments: $@"
+function echod() {
+  if [ "${debug:-}" == "debug" ]; then
+    echo "[DEBUG] $@"
+  fi
+}
 
 function importProjectConfiguration() {
     LOCAL_DEV_URL=$1
@@ -32,13 +37,14 @@ function importProjectConfiguration() {
     admin_password=$3
     repoName=$4
     HOME_DIR=$5
+    debug=${@: -1}
 
 
-    echo "Running importProjectConfiguration with parameters:"
-    echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"
-    echo "admin_user=$admin_user"
-    echo "repoName=$repoName"
-    echo "HOME_DIR=$HOME_DIR"
+    echod "Running importProjectConfiguration with parameters:"
+    echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"
+    echod "admin_user=$admin_user"
+    echod "repoName=$repoName"
+    echod "HOME_DIR=$HOME_DIR"
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 

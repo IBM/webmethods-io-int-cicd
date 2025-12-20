@@ -755,7 +755,7 @@ if [ ${synchProject} == true ]; then
   # Project Configuration import
   assetID=${assetIDList}
   assetType=project_configuration
-  ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+  ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
   
   # Project variables import
   assetID=${assetIDList}
