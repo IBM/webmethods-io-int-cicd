@@ -53,64 +53,70 @@ function importProjectConfiguration() {
     PROJECT_CONFIGURATION_IMPORT_URL="${LOCAL_DEV_URL}/apis/v2/rest/projects/${repoName}/configurations"
     
     file_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectConfiguration"
-    # Timestamp
-    generated_on=$(date +%s)
+    
+    if [ -z "$file_dir" ];   then
+      echod "No Project configurations to import"
+    else
 
-    # If you have split files, read and assemble them
-    source_env_name=$(jq -r '.metadata.source' $file_dir/ProjectConfiguration_List_Full.json)
-    project_id=$(jq -r '.metadata.project' $file_dir/ProjectConfiguration_List_Full.json)
-    packages=$(jq '.' $file_dir/configurations_packages.json)
-    variables=$(jq '.' $file_dir/configurations_variables.json)
-    connections=$(jq '.' $file_dir/configurations_connections.json)
-    certificates=$(jq '.' $file_dir/configurations_certificates.json)
-    servicesSchedule=$(jq '.' $file_dir/configurations_servicesSchedule.json)
-    alertRules=$(jq '.' $file_dir/globals_alertRules.json)
-    versionControlAccounts=$(jq '.' $file_dir/globals_versionControlAccounts.json)
+      # Timestamp
+      generated_on=$(date +%s)
 
-    # Build full payload dynamically
-    payload=$(jq -n \
-      --arg source "$source_env_name" \
-      --arg project "$project_id" \
-      --argjson generatedOn "$generated_on" \
-      --argjson packages "$packages" \
-      --argjson variables "$variables" \
-      --argjson connections "$connections" \
-      --argjson certificates "$certificates" \
-      --argjson servicesSchedule "$servicesSchedule" \
-      --argjson alertRules "$alertRules" \
-      --argjson versionControlAccounts "$versionControlAccounts" \
-      '{
-        apiVersion: "1.0",
-        metadata: {
-          project: $project,
-          generatedOn: $generatedOn
-        },
-        configurations: {
-          packages: $packages,
-          variables: $variables,
-          connections: $connections,
-          certificates: $certificates,
-          servicesSchedule: $servicesSchedule
-        },
-        globals: {
-          alertRules: $alertRules,
-          versionControlAccounts: $versionControlAccounts
-        }
-      }'
-    )
+      # If you have split files, read and assemble them
+      source_env_name=$(jq -r '.metadata.source' $file_dir/ProjectConfiguration_List_Full.json)
+      project_id=$(jq -r '.metadata.project' $file_dir/ProjectConfiguration_List_Full.json)
+      packages=$(jq '.' $file_dir/configurations_packages.json)
+      variables=$(jq '.' $file_dir/configurations_variables.json)
+      connections=$(jq '.' $file_dir/configurations_connections.json)
+      certificates=$(jq '.' $file_dir/configurations_certificates.json)
+      servicesSchedule=$(jq '.' $file_dir/configurations_servicesSchedule.json)
+      alertRules=$(jq '.' $file_dir/globals_alertRules.json)
+      versionControlAccounts=$(jq '.' $file_dir/globals_versionControlAccounts.json)
 
-    # Call API to import
-    echo "📤 Importing project configuration to $PROJECT_CONFIGURATION_IMPORT_URL"
-    response=$(curl --silent --show-error --fail \
-      -u "${admin_user}:${admin_password}" \
-      -H "Content-Type: application/json" \
-      -X PUT \
-      --data-raw "$payload" \
-      "$PROJECT_CONFIGURATION_IMPORT_URL"
-    )
+      # Build full payload dynamically
+      payload=$(jq -n \
+        --arg source "$source_env_name" \
+        --arg project "$project_id" \
+        --argjson generatedOn "$generated_on" \
+        --argjson packages "$packages" \
+        --argjson variables "$variables" \
+        --argjson connections "$connections" \
+        --argjson certificates "$certificates" \
+        --argjson servicesSchedule "$servicesSchedule" \
+        --argjson alertRules "$alertRules" \
+        --argjson versionControlAccounts "$versionControlAccounts" \
+        '{
+          apiVersion: "1.0",
+          metadata: {
+            project: $project,
+            generatedOn: $generatedOn
+          },
+          configurations: {
+            packages: $packages,
+            variables: $variables,
+            connections: $connections,
+            certificates: $certificates,
+            servicesSchedule: $servicesSchedule
+          },
+          globals: {
+            alertRules: $alertRules,
+            versionControlAccounts: $versionControlAccounts
+          }
+        }'
+      )
 
-    echo "✅ Import completed. Response:"
-    echo "$response" | jq '.'
+      # Call API to import
+      echo "📤 Importing project configuration to $PROJECT_CONFIGURATION_IMPORT_URL"
+      response=$(curl --silent --show-error --fail \
+        -u "${admin_user}:${admin_password}" \
+        -H "Content-Type: application/json" \
+        -X PUT \
+        --data-raw "$payload" \
+        "$PROJECT_CONFIGURATION_IMPORT_URL"
+      )
+
+      echo "✅ Import completed. Response:"
+      echo "$response" | jq '.'
+    fi
 }
 
 # Usage:
