@@ -54,10 +54,7 @@ function importProjectConfiguration() {
     
     file_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectConfiguration"
     
-    if [ -z "$file_dir" ];   then
-      echod "No Project configurations to import"
-    else
-
+    if [ -d "$DIR" ]; then
       # Timestamp
       generated_on=$(date +%s)
 
@@ -115,7 +112,9 @@ function importProjectConfiguration() {
       )
 
       echo "✅ Import completed. Response:"
-      echo "$response" | jq '.'
+      echo "$response" | jq '.'    
+    else
+      echo "⚠️  No Project configurations to import"
     fi
 }
 
