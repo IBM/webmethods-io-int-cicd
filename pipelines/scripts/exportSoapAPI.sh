@@ -22,6 +22,9 @@
 #                                                                                                                                                                  #
 ####################################################################################################################################################################
 
+function echod() {
+        echo "$@" >&2   
+}
 
 function exportSOAPAsset() {
   LOCAL_DEV_URL=$1
@@ -31,6 +34,13 @@ function exportSOAPAsset() {
   assetID=$5
   assetType=$6
   HOME_DIR=$7
+  debug=${@: -1}
+
+    # Debug mode
+  if [ "$debug" == "debug" ]; then
+      echo "......Running in Debug mode ......" >&2
+      set -x
+  fi
 
   # Single assetType
   if [[ $assetType = soap_api* ]]; then

@@ -755,17 +755,17 @@ if [ ${synchProject} == true ]; then
   # Project Configuration import
   assetID=${assetIDList}
   assetType=project_configuration
-  ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
+  ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
   
   # Project variables import
   assetID=${assetIDList}
   assetType=project_variable
-  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
-  
+  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+
   # Project variables import
   assetID=${assetIDList}
   assetType=certificate
-  ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
+  ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
 
 else
   #importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}

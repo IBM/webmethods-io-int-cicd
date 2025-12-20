@@ -32,10 +32,9 @@ set -euo pipefail
 #################################################################################################################################################################
 
 function echod() {
-  if [ "${debug:-}" == "debug" ]; then
-    echo "[DEBUG] $@"
-  fi
+        echo "$@" >&2   
 }
+
 
 
 # Import all Certificate configurations in bulk
@@ -45,6 +44,7 @@ function importCertificate() {
   admin_password=$3
   repoName=$4
   HOME_DIR=$5
+  assetID=$6
   debug=${@: -1}
 
   if [ "${debug}" == "debug" ]; then

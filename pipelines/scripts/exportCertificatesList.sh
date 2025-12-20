@@ -22,10 +22,13 @@
 
 
 set -euo pipefail
-set -x
 
 echo "Starting exportCertificatesList.sh"
 echo "Arguments: $@"
+
+function echod() {
+        echo "$@" >&2   
+}
 
 exportCertificatesList() {
     LOCAL_DEV_URL=$1
@@ -35,6 +38,13 @@ exportCertificatesList() {
     HOME_DIR=$5
     assetID=$6
     #CERT_TYPE=$7
+    debug=${@: -1}
+
+    # Debug mode
+    if [ "$debug" == "debug" ]; then
+        echo "......Running in Debug mode ......" >&2
+        set -x
+    fi
 
     echo "Running exportCertificatesList with parameters:"
     echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"

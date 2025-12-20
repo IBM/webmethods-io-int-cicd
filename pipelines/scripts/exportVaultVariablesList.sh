@@ -20,9 +20,14 @@
 #   5. HOME_DIR        - Path to the local home directory of the repository.                                                                                    #
 #################################################################################################################################################################
 
-set -x
+
 echo "Starting exportVaultVariablesList.sh"
 echo "Arguments: $@"
+
+
+function echod() {
+        echo "$@" >&2   
+}
 
 function exportVaultVariablesList() {
 
@@ -31,13 +36,20 @@ function exportVaultVariablesList() {
     admin_password=$3
     repoName=$4
     HOME_DIR=$5
+    debug=${@: -1}
 
-echo "Running exportVaultVariablesList with parameters:"
-echo "LOCAL_DEV_URL=$1"
-echo "admin_user=$2"
-echo "admin_password=$3"
-echo "repoName=$4"
-echo "HOME_DIR=$5"
+    # Debug mode
+    if [ "$debug" == "debug" ]; then
+        echo "......Running in Debug mode ......" >&2
+        set -x
+    fi
+
+    echod "Running exportVaultVariablesList with parameters:"
+    echod "LOCAL_DEV_URL=$1"
+    echod "admin_user=$2"
+    echod "admin_password=$3"
+    echod "repoName=$4"
+    echod "HOME_DIR=$5"
 
 
     cd "${HOME_DIR}/${repoName}" || exit

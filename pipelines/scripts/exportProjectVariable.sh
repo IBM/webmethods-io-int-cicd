@@ -23,18 +23,36 @@ set -x
 echo "Starting exportProjectVariable.sh"
 echo "Arguments: $@"
 
+function echod() {
+        echo "$@" >&2   
+}
+
+
+
 function exportProjectVariableList() {
     LOCAL_DEV_URL=$1
     admin_user=$2
     admin_password=$3
     repoName=$4
     HOME_DIR=$5
+    assetID=$6
+    debug=${@: -1}
 
-    echo "Running exportProjectVariableList with parameters:"
-    echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"
-    echo "admin_user=$admin_user"
-    echo "repoName=$repoName"
-    echo "HOME_DIR=$HOME_DIR"
+    # Debug mode
+    if [ "$debug" == "debug" ]; then
+        echo "......Running in Debug mode ......" >&2
+        set -x
+    fi
+
+   
+
+    echod "Running exportProjectVariableList with parameters:"
+    echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"
+    echod "admin_user=$admin_user"
+    echod "repoName=$repoName"
+    echod "HOME_DIR=$HOME_DIR"
+    echod "assetID=$assetID"
+    
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 
@@ -50,7 +68,7 @@ function exportProjectVariableList() {
     # Validate response
     if [ -z "$ProjectVariableListJson" ] || [ "$ProjectVariableListJson" == "null" ]; then
         echo "❌ No Project variables retrieved."
-        echo "$ProjectVariableListJson"
+        echod "$ProjectVariableListJson"
         return
     fi
 
@@ -77,12 +95,12 @@ function exportProjectVariable() {
     repoName=$4
     assetID=$5
 
-    echo "Running exportProjectVariable with parameters:"
-    echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"
-    echo "admin_user=$admin_user"
-    echo "admin_password=****"
-    echo "repoName=$repoName"
-    echo "assetID=$assetID"
+    echod "Running exportProjectVariable with parameters:"
+    echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"
+    echod "admin_user=$admin_user"
+    echod "admin_password=****"
+    echod "repoName=$repoName"
+    echod "assetID=$assetID"
     
     SINGLE_PROJECT_VARIABLE_GET_URL="${LOCAL_DEV_URL}/apis/v2/rest/projects/${repoName}/configurations/variables/${assetID}?type=projectVariable"
 

@@ -19,9 +19,13 @@
 #################################################################################################################################################################
 
 
-set -x
+
 echo "Starting exportProjectConfiguration.sh"
 echo "Arguments: $@"
+
+function echod() {
+        echo "$@" >&2   
+}
 
 function exportProjectConfigurationList() {
     LOCAL_DEV_URL=$1
@@ -29,12 +33,21 @@ function exportProjectConfigurationList() {
     admin_password=$3
     repoName=$4
     HOME_DIR=$5
+    assetID=$6
+    debug=${@: -1}
 
-    echo "Running exportProjectConfigurationList with parameters:"
-    echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"
-    echo "admin_user=$admin_user"
-    echo "repoName=$repoName"
-    echo "HOME_DIR=$HOME_DIR"
+    # Debug mode
+    if [ "$debug" == "debug" ]; then
+        echo "......Running in Debug mode ......" >&2
+        set -x
+    fi
+
+    echod "Running exportProjectConfigurationList with parameters:"
+    echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"
+    echod "admin_user=$admin_user"
+    echod "repoName=$repoName"
+    echod "HOME_DIR=$HOME_DIR"
+    echod "assetID=$assetID"
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 

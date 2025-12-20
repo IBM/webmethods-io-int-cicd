@@ -29,8 +29,9 @@ IFS=$'\n\t'
 ##############################################################################################################################################
 
 # Debug echo function
+
 function echod() {
-  echo "[DEBUG] $*"
+  echo "[DEBUG]: ""$@" >&2
 }
 
 # Import vault variables from JSON files listed in vaultVariables_keys.txt
@@ -41,6 +42,12 @@ function importVaultVariables() {
   local repoName=$4
   local HOME_DIR=$5
   local synchProject=$6
+   debug=${@: -1}
+
+  if [ "${debug}" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+    set -x
+  fi
 
   local vault_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/vaultVariables"
   local vault_file="${vault_dir}/vaultVariables_keys.txt"

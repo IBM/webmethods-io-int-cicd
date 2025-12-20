@@ -22,10 +22,15 @@
 
 
 set -euo pipefail
-set -x
+
 
 echo "Starting exportSchedulersList.sh"
 echo "Arguments: $@"
+
+function echod() {
+        echo "$@" >&2   
+}
+
 
 function exportSchedulersList() {
     LOCAL_DEV_URL=$1
@@ -34,6 +39,13 @@ function exportSchedulersList() {
     repoName=$4
     HOME_DIR=$5
     SINGLE_SCHEDULER=$6
+    debug=${@: -1}
+
+    # Debug mode
+    if [ "$debug" == "debug" ]; then
+        echo "......Running in Debug mode ......" >&2
+        set -x
+    fi
 
     echo "Running exportSingleScheduler with parameters:"
     echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"

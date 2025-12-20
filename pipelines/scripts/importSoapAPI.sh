@@ -16,7 +16,9 @@
 #   HOME_DIR        - Path to the base working directory
 ################################################################################################################################################################
 
-
+function echod() {
+  echo "$@" >&2
+}
 
 function importSOAPAsset() {
   LOCAL_DEV_URL=$1
@@ -26,6 +28,12 @@ function importSOAPAsset() {
   assetID=$5
   assetType=$6
   HOME_DIR=$7
+  debug=${@: -1}
+
+  if [ "${debug}" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+    set -x
+  fi
 
   echo "Current directory: $(pwd)"
   ls -ltr
