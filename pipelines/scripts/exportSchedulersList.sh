@@ -27,6 +27,9 @@ set -euo pipefail
 echo "Starting exportSchedulersList.sh"
 echo "Arguments: $@"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/configPerEnv.sh"
+
 function echod() {
         echo "$@" >&2   
 }
@@ -91,7 +94,7 @@ function exportSchedulersList() {
         # fi
     fi
 
-     exportSingleScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$SchedulersKeyList_file" "$SINGLE_SCHEDULER"
+     exportSingleScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$SchedulersKeyList_file" "$SINGLE_SCHEDULER" "$envTypes" "$source_type" "$debug"
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 }
@@ -103,6 +106,9 @@ function exportSingleScheduler() {
     repoName=$4
     SchedulersKeyList_file=$5
     SINGLE_SCHEDULER=$6
+    envTypes=${7:-}
+    source_type=${8:-}
+    debug=${@: -1}
 
     echo "Running exportSingleScheduler with parameters:"
     echo "LOCAL_DEV_URL=$LOCAL_DEV_URL"
@@ -143,12 +149,7 @@ function exportSingleScheduler() {
             echo "✅ Saved: $base_file"
 
             if [ -n "$envTypes" ]; then
-              IFS=',' read -ra envs <<< "$envTypes"
-              for env in "${envs[@]}"; do
-                env=$(echo "$env" | xargs | tr -d '\"' | tr -d \"'\")
-                [ -z "$env" ] && continue
-                cp "$base_file" "${service_dir}/${serviceName}-${env}.json"
-              done
+              configPerEnv "$service_dir" "$envTypes" "scheduler" "${serviceName}_scheduler.json" "$serviceName"
             fi
         else
             echo "⚠️ Skipping invalid JSON for service: $serviceName"

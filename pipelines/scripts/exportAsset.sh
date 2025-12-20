@@ -206,6 +206,19 @@ function exportReferenceData (){
   cd ${HOME_DIR}/${repoName}
 } 
 
+function exportAsset(){
+
+  LOCAL_DEV_URL=$1
+  admin_user=$2
+  admin_password=$3
+  repoName=$4
+  assetID=$5
+  assetType=$6
+  HOME_DIR=$7
+  synchProject=$8
+  includeAllReferenceData=$9
+
+
 function configPerEnv(){
   localtion=$1
   envTypes=$2
@@ -227,20 +240,6 @@ function configPerEnv(){
   done
 
 }
-
-function exportAsset(){
-
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  includeAllReferenceData=$9
-
- 
     # Single assetType
     if [[ $assetType = referenceData* ]]; then
       PROJECT_ID_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}
