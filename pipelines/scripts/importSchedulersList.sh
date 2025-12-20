@@ -34,7 +34,9 @@ set -euo pipefail
 #################################################################################################################################################################
 
 function echod() {
-  echo "[DEBUG] $@"
+  if [ "${debug:-}" == "debug" ]; then
+    echo "[DEBUG] $@"
+  fi
 }
 
 ## Import multiple schedulers from list
@@ -132,6 +134,12 @@ function importScheduler() {
   repoName=$4
   HOME_DIR=$5
   SINGLE_SCHEDULER=$6
+  debug=${@: -1}
+
+  if [ "${debug}" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+    set -x
+  fi
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 
@@ -180,6 +188,11 @@ function projectImportschedulers() {
   repoName=$4
   HOME_DIR=$5
   SINGLE_SCHEDULER=$6
+  debug=${@: -1}
+
+  if [ "${debug}" == "debug" ]; then
+    set -x
+  fi
 
   scheduler_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers"
 
@@ -189,9 +202,9 @@ function projectImportschedulers() {
   fi
 
   if [ "$SINGLE_SCHEDULER" == "true" ]; then
-    importSingleScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$SINGLE_SCHEDULER"
+    importSingleScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$SINGLE_SCHEDULER" "$debug"
   else
-    importScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$SINGLE_SCHEDULER"
+    importScheduler "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$SINGLE_SCHEDULER" "$debug"
   fi
 }
 

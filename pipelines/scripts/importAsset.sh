@@ -149,7 +149,7 @@ function importAsset() {
 				else
 				  if [[ $assetType = Scheduler* ]]; then
 				  echod " Scheduler Import: "${assetType}
-				  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+				  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
 				  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers
 				  echod $(ls -ltr)
 				  else
@@ -161,13 +161,13 @@ function importAsset() {
 					else
 					  if [[ $assetType = project_variable* ]]; then
 					  echod " project variable Import: "${assetType}
-					  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+					  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
 					  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectVariable
 					  echod $(ls -ltr)
                       else
                         if [[ $assetType = certificate* ]]; then
                         echod " project variable Import: "${assetType}
-                        ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+                        ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
                         cd ${HOME_DIR}/${repoName}/assets/projectConfigs/Certificates
                         echod $(ls -ltr)
                       fi
@@ -750,7 +750,7 @@ if [ ${synchProject} == true ]; then
   # Scheduler import
   assetID=${assetIDList}
   assetType=Scheduler
-  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
   
   # Project Configuration import
   assetID=${assetIDList}
@@ -760,12 +760,12 @@ if [ ${synchProject} == true ]; then
   # Project variables import
   assetID=${assetIDList}
   assetType=project_variable
-  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
   
   # Project variables import
   assetID=${assetIDList}
   assetType=certificate
-  ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+  ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
 
 else
   #importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}

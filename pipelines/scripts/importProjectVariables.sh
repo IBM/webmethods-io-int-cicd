@@ -32,7 +32,9 @@ set -euo pipefail
 #################################################################################################################################################################
 
 function echod() {
-  echo "[DEBUG] $@"
+  if [ "${debug:-}" == "debug" ]; then
+    echo "[DEBUG] $@"
+  fi
 }
 
 
@@ -43,6 +45,12 @@ function importProjectVariables() {
   admin_password=$3
   repoName=$4
   HOME_DIR=$5
+  debug=${@: -1}
+
+  if [ "${debug}" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+    set -x
+  fi
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 
