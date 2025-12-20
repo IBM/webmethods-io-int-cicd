@@ -366,12 +366,7 @@ function importSingleRefData(){
       columnDelimiter=$(jq -r .columnDelimiter metadata.json)
       encodingType=$(jq -r .encodingType metadata.json)
       releaseCharacter=$(jq -r .releaseCharacter metadata.json)
-      # Prefer rdName-source_type.csv; fallback to source_type.csv
-      if [ -f "./${refDataName}-${source_type}.csv" ]; then
-        FILE="./${refDataName}-${source_type}.csv"
-      else
-        FILE="./${source_type}.csv"
-      fi
+      FILE=./${source_type}.csv
       formKey="file=@"${FILE}
       echod ${formKey} 
       REF_DATA_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/referencedata/${refDataName}

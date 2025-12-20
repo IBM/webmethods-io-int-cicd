@@ -106,8 +106,8 @@ function exportSingleReferenceData () {
     metadataJson=$(echo "$rdJson" | jq -c -r '.output')
     metadataJson=$(echo "$metadataJson"| jq 'del(.columnNames, .dataRecords, .revisionData)')
     echo "$metadataJson" > metadata.json
-    echo "$datajson" > ${rdName}-${source_type}.csv
-    configPerEnv . ${envTypes} "referenceData" ${rdName}-${source_type}.csv
+    echo "$datajson" > ${source_type}.csv
+    configPerEnv . ${envTypes} "referenceData" ${source_type}.csv
     cd -
   fi
   cd ${HOME_DIR}/${repoName}
