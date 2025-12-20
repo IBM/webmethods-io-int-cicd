@@ -98,6 +98,7 @@ steps:
   displayName: 'Create a repo and required branches'
   condition: succeeded()
 - script: |
+      set -x
       cd ../
       LOCAL_DEV_URL=https://$(source_environment_hostname):$(source_environment_port)
       echo ${LOCAL_DEV_URL}
