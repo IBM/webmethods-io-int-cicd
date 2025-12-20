@@ -30,6 +30,7 @@ debug=${@: -1}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/secretManager.sh"
+source "${SCRIPT_DIR}/configPerEnv.sh"
 
 # Validate required inputs
 [ -z "$LOCAL_DEV_URL" ] && echo "Missing template parameter LOCAL_DEV_URL" >&2 && exit 1
@@ -105,8 +106,8 @@ function exportSingleReferenceData () {
     metadataJson=$(echo "$rdJson" | jq -c -r '.output')
     metadataJson=$(echo "$metadataJson"| jq 'del(.columnNames, .dataRecords, .revisionData)')
     echo "$metadataJson" > metadata.json
-    echo "$datajson" > ${source_type}.csv
-    configPerEnv . ${envTypes} "referenceData" ${source_type}.csv
+    echo "$datajson" > ${rdName}-${source_type}.csv
+    configPerEnv . ${envTypes} "referenceData" ${rdName}-${source_type}.csv
     cd -
   fi
   cd ${HOME_DIR}/${repoName}
@@ -144,10 +145,10 @@ function exportConnection(){
             name=$(echo "$item" | jq -r '.name')
             mkdir -p ./$name
             cd $name
-            maskedJson=$(maskFieldsInJson "$item" "$name" "$repoName" "$source_type" "$provider" "$vaultName" "$HOME_DIR" "$envTypes")
+maskedJson=$(maskFieldsInJson "$item" "$name" "$repoName" "$source_type" "$provider" "$vaultName" "$HOME_DIR" "$envTypes")
 
-            echo "$maskedJson" > ${name}_${source_type}.json
-            configPerEnv . ${envTypes} "connection" ${name}_${source_type}.json $name
+            echo "$maskedJson" > ${name}-${source_type}.json
+            configPerEnv . ${envTypes} "connection" ${name}-${source_type}.json $name
             echod "✅ Saved ${name}_${source_type}.json"
             cd ..
           done
@@ -219,27 +220,6 @@ function exportAsset(){
   includeAllReferenceData=$9
 
 
-function configPerEnv(){
-  localtion=$1
-  envTypes=$2
-  configType=$3
-  sourceFile=$4
-  key=$5
-
-  IFS=, read -ra values <<< "$envTypes"
-  for v in "${values[@]}"
-  do
-     # things with "$v"
-     if [ ${configType} == "referenceData" ]; then
-        cp ./$sourceFile ./$v.csv
-     else
-        if [[ "$configType" == "project_parameter" || "$configType" == "connection" ]]; then
-            cp ./$sourceFile ./${key}-${v}.json
-         fi
-      fi
-  done
-
-}
     # Single assetType
     if [[ $assetType = referenceData* ]]; then
       PROJECT_ID_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}
@@ -507,8 +487,8 @@ function exportProjectParameters(){
                   key=$(jq -r '.output.param.key' <<< "$ppListJson")
                   metadataJson='{ "uid":"'${parameterUID}'" }'
                   echo ${metadataJson} > ./metadata.json
-                  echo ${data} > ./${key}_${source_type}.json
-                  configPerEnv . ${envTypes} "project_parameter" ${key}_${source_type}.json ${key}
+                  echo ${data} > ./${key}-${source_type}.json
+                  configPerEnv . ${envTypes} "project_parameter" ${key}-${source_type}.json ${key}
                   cd ..
               else 
                 for item in $(jq  -c -r '.output[]' <<< "$ppListJson"); do
@@ -520,8 +500,8 @@ function exportProjectParameters(){
                   key=$(jq -r '.param.key' <<< "$item")
                   metadataJson='{ "uid":"'${parameterUID}'" }'
                   echo ${metadataJson} > ./metadata.json
-                  echo ${data} > ./${key}_${source_type}.json
-                  configPerEnv . ${envTypes} "project_parameter" ${key}_${source_type}.json ${key}
+                  echo ${data} > ./${key}-${source_type}.json
+                  configPerEnv . ${envTypes} "project_parameter" ${key}-${source_type}.json ${key}
                   cd ..
                 done
               fi
