@@ -74,14 +74,14 @@ function exportSchedulersList() {
     # Extract service names (may be empty)
     mapfile -t schedulers < <(echo "$SchedulersListJson" | jq -r '.output[]?.serviceName // empty')
 
-    SchedulersList_file="./assets/projectConfigs/schedules/SchedulersList.json"
-    SchedulersKeyList_file="./assets/projectConfigs/schedules/SchedulersKeyList.json"
+    SchedulersList_file="./assets/projectConfigs/schedulers/SchedulersList.json"
+    SchedulersKeyList_file="./assets/projectConfigs/schedulers/SchedulersKeyList.json"
 
     if [ ${#schedulers[@]} -eq 0 ]; then
         echo "ℹ️ No schedulers found; skipping export."
         return 0
     else
-        mkdir -p ./assets/projectConfigs/schedules
+        mkdir -p ./assets/projectConfigs/schedulers
         echo "$SchedulersListJson" | jq '.' > "$SchedulersList_file"
         printf "%s\n" "${schedulers[@]}" > "$SchedulersKeyList_file"
         echo "✅ Schedulers list saved to: $SchedulersList_file"
@@ -118,7 +118,7 @@ function exportSingleScheduler() {
     echo "SchedulersKeyList_file=$SchedulersKeyList_file"
     echo "SINGLE_SCHEDULER=$SINGLE_SCHEDULER"
 
-    output_base="./assets/projectConfigs/schedules"
+    output_base="./assets/projectConfigs/schedulers"
     mkdir -p "$output_base"
 
     while IFS= read -r serviceName; do
