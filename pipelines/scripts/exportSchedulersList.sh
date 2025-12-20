@@ -109,8 +109,8 @@ function exportSingleScheduler() {
     echo "SchedulersKeyList_file=$SchedulersKeyList_file"
     echo "SINGLE_SCHEDULER=$SINGLE_SCHEDULER"
 
-    output_dir="./assets/projectConfigs/Schedulers"
-    mkdir -p "$output_dir"
+    output_base="./assets/projectConfigs/Schedulers"
+    mkdir -p "$output_base"
 
     while IFS= read -r serviceName; do
         if [ -z "$serviceName" ]; then
@@ -133,7 +133,9 @@ function exportSingleScheduler() {
         fi
 
         if echo "$singleScheduleExport" | jq empty 2>/dev/null; then
-            individual_file="$output_dir/${serviceName}_scheduler.json"
+            service_dir="${output_base}/${serviceName}"
+            mkdir -p "$service_dir"
+            individual_file="${service_dir}/${serviceName}_scheduler.json"
             echo "$singleScheduleExport" | jq '.' > "$individual_file"
             echo "✅ Saved: $individual_file"
         else
