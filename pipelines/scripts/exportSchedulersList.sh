@@ -39,6 +39,8 @@ function exportSchedulersList() {
     repoName=$4
     HOME_DIR=$5
     SINGLE_SCHEDULER=$6
+    envTypes=${7:-}
+    source_type=${8:-}
     debug=${@: -1}
 
     # Debug mode
@@ -54,6 +56,7 @@ function exportSchedulersList() {
     echo "repoName=$repoName"
     echo "HOME_DIR=$HOME_DIR"
     echo "SINGLE_SCHEDULER=$SINGLE_SCHEDULER"
+    echo "envTypes=$envTypes"
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 
@@ -135,9 +138,18 @@ function exportSingleScheduler() {
         if echo "$singleScheduleExport" | jq empty 2>/dev/null; then
             service_dir="${output_base}/${serviceName}"
             mkdir -p "$service_dir"
-            individual_file="${service_dir}/${serviceName}_scheduler.json"
-            echo "$singleScheduleExport" | jq '.' > "$individual_file"
-            echo "✅ Saved: $individual_file"
+            base_file="${service_dir}/${serviceName}_scheduler.json"
+            echo "$singleScheduleExport" | jq '.' > "$base_file"
+            echo "✅ Saved: $base_file"
+
+            if [ -n "$envTypes" ]; then
+              IFS=',' read -ra envs <<< "$envTypes"
+              for env in "${envs[@]}"; do
+                env=$(echo "$env" | xargs | tr -d '\"' | tr -d \"'\")
+                [ -z "$env" ] && continue
+                cp "$base_file" "${service_dir}/${serviceName}-${env}.json"
+              done
+            fi
         else
             echo "⚠️ Skipping invalid JSON for service: $serviceName"
         fi

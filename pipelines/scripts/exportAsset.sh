@@ -313,7 +313,7 @@ function exportAsset(){
                   if [[ $assetType = Scheduler* ]]; then
                     echo "Calling another script"
                     echod "SCHEDULER Export Process is Start"
-                    ../self/pipelines/scripts/exportSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                    ../self/pipelines/scripts/exportSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$envTypes" "$source_type" "$debug"
                     echod "SCHEDULER Export Process is End"
                     echod $(ls -ltr)
                     return
