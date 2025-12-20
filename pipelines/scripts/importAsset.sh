@@ -150,7 +150,7 @@ function importAsset() {
 				  if [[ $assetType = Scheduler* ]]; then
 				  echod " Scheduler Import: "${assetType}
 				  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
-				  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers
+				  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/schedules
 				  echod $(ls -ltr)
 				  else
 				    if [[ $assetType = project_configuration* ]]; then

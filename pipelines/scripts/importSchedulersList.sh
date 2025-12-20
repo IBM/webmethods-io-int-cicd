@@ -52,7 +52,7 @@ function importSingleScheduler() {
     echo "......Running in Debug mode ......" >&2
     set -x
   fi
-  scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers/SchedulersKeyList.json"
+  scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/schedules/SchedulersKeyList.json"
 
   if [ ! -f "$scheduler_file" ]; then
     echo "⚠️  Scheduler file not found, skipping: $scheduler_file"
@@ -79,7 +79,7 @@ function importSingleScheduler() {
     echod "📌 Processing scheduler: $SchedulerServiceName"
 
     CREATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/configurations/schedulers/${SchedulerServiceName}"
-    single_scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers/${SchedulerServiceName}_scheduler.json"
+    single_scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/schedules/${SchedulerServiceName}_scheduler.json"
 
     if [ ! -f "$single_scheduler_file" ]; then
       echo "❌ Scheduler config not found: $single_scheduler_file"
@@ -147,7 +147,7 @@ function importScheduler() {
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 
-  scheduler_dir="./assets/projectConfigs/Schedulers"
+  scheduler_dir="./assets/projectConfigs/schedules"
   schedulersList_file="${scheduler_dir}/SchedulersList.json"
 
   if [ -f "$schedulersList_file" ]; then
@@ -198,7 +198,7 @@ function projectImportschedulers() {
     set -x
   fi
 
-  scheduler_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/Schedulers"
+  scheduler_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/schedules"
 
   if [ ! -d "$scheduler_dir" ]; then
     echo "⚠️  Scheduler config folder not found, skipping: $scheduler_dir"

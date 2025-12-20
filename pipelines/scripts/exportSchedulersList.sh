@@ -74,14 +74,14 @@ function exportSchedulersList() {
     # Extract service names (may be empty)
     mapfile -t schedulers < <(echo "$SchedulersListJson" | jq -r '.output[]?.serviceName // empty')
 
-    SchedulersList_file="./assets/projectConfigs/Schedulers/SchedulersList.json"
-    SchedulersKeyList_file="./assets/projectConfigs/Schedulers/SchedulersKeyList.json"
+    SchedulersList_file="./assets/projectConfigs/schedules/SchedulersList.json"
+    SchedulersKeyList_file="./assets/projectConfigs/schedules/SchedulersKeyList.json"
 
     if [ ${#schedulers[@]} -eq 0 ]; then
         echo "ℹ️ No schedulers found; skipping export."
         return 0
     else
-        mkdir -p ./assets/projectConfigs/Schedulers
+        mkdir -p ./assets/projectConfigs/schedules
         echo "$SchedulersListJson" | jq '.' > "$SchedulersList_file"
         printf "%s\n" "${schedulers[@]}" > "$SchedulersKeyList_file"
         echo "✅ Schedulers list saved to: $SchedulersList_file"
@@ -118,7 +118,7 @@ function exportSingleScheduler() {
     echo "SchedulersKeyList_file=$SchedulersKeyList_file"
     echo "SINGLE_SCHEDULER=$SINGLE_SCHEDULER"
 
-    output_base="./assets/projectConfigs/Schedulers"
+    output_base="./assets/projectConfigs/schedules"
     mkdir -p "$output_base"
 
     while IFS= read -r serviceName; do
@@ -144,12 +144,15 @@ function exportSingleScheduler() {
         if echo "$singleScheduleExport" | jq empty 2>/dev/null; then
             service_dir="${output_base}/${serviceName}"
             mkdir -p "$service_dir"
-            base_file="${service_dir}/${serviceName}_scheduler.json"
+            base_file="${service_dir}/${serviceName}-${source_type}.json"
             echo "$singleScheduleExport" | jq '.' > "$base_file"
             echo "✅ Saved: $base_file"
 
+            # Also keep a generic copy with the original name
+            echo "$singleScheduleExport" | jq '.' > "${service_dir}/${serviceName}_scheduler.json"
+
             if [ -n "$envTypes" ]; then
-              configPerEnv "$service_dir" "$envTypes" "scheduler" "${serviceName}_scheduler.json" "$serviceName"
+              configPerEnv "$service_dir" "$envTypes" "scheduler" "${serviceName}-${source_type}.json" "$serviceName"
             fi
         else
             echo "⚠️ Skipping invalid JSON for service: $serviceName"
