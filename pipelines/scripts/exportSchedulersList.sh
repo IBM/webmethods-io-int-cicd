@@ -65,19 +65,20 @@ function exportSchedulersList() {
         --header 'Accept: application/json' \
         -u "${admin_user}:${admin_password}")
 
-    SchedulersListExport=$(echo "$SchedulersListJson" | jq '.')
+    # Extract service names (may be empty)
+    mapfile -t schedulers < <(echo "$SchedulersListJson" | jq -r '.output[]?.serviceName // empty')
 
     SchedulersList_file="./assets/projectConfigs/Schedulers/SchedulersList.json"
     SchedulersKeyList_file="./assets/projectConfigs/Schedulers/SchedulersKeyList.json"
 
-    if [ -z "$SchedulersListExport" ] || [ "$SchedulersListExport" == "null" ]; then
-        echo "❌ No schedulers retrieved."
-        echo "$SchedulersListJson"
+    if [ ${#schedulers[@]} -eq 0 ]; then
+        echo "ℹ️ No schedulers found; skipping export."
+        return 0
     else
         mkdir -p ./assets/projectConfigs/Schedulers
-        echo "$SchedulersListExport" | jq '.' > "$SchedulersList_file"
-        echo "✅ Schedulers List saved to: $SchedulersList_file"
-        echo "$SchedulersListJson" | jq -r '.output[].serviceName' > "$SchedulersKeyList_file"
+        echo "$SchedulersListJson" | jq '.' > "$SchedulersList_file"
+        printf "%s\n" "${schedulers[@]}" > "$SchedulersKeyList_file"
+        echo "✅ Schedulers list saved to: $SchedulersList_file"
         echo "✅ Scheduler keys saved to: $SchedulersKeyList_file"
 
         # echo "SINGLE_SCHEDULER = $SINGLE_SCHEDULER"
@@ -108,50 +109,38 @@ function exportSingleScheduler() {
     echo "SchedulersKeyList_file=$SchedulersKeyList_file"
     echo "SINGLE_SCHEDULER=$SINGLE_SCHEDULER"
 
-    # if [ "$SINGLE_SCHEDULER" == "true" ]; then
-        output_dir="./assets/projectConfigs/Schedulers"
-        output_file="$output_dir/Single_Schedulers_file.json"
-        single_schedule_array="[]"
+    output_dir="./assets/projectConfigs/Schedulers"
+    mkdir -p "$output_dir"
 
-        mkdir -p "$output_dir"
+    while IFS= read -r serviceName; do
+        if [ -z "$serviceName" ]; then
+            continue
+        fi
 
-        while IFS= read -r serviceName; do
-            if [ -z "$serviceName" ]; then
-                continue
-            fi
+        echo "Fetching Service Name: $serviceName"
+        SINGLE_SCHEDULERS_GET_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/configurations/schedulers/${serviceName}"
 
-            echo "Fetching Service Name: $serviceName"
-            SINGLE_SCHEDULERS_GET_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/configurations/schedulers/${serviceName}"
+        singleSchedulerJson=$(curl --silent --location --request GET "$SINGLE_SCHEDULERS_GET_URL" \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json' \
+            -u "${admin_user}:${admin_password}")
 
-            singleSchedulerJson=$(curl --silent --location --request GET "$SINGLE_SCHEDULERS_GET_URL" \
-                --header 'Content-Type: application/json' \
-                --header 'Accept: application/json' \
-                -u "${admin_user}:${admin_password}")
+        singleScheduleExport=$(echo "$singleSchedulerJson" | jq '.')
 
-            singleScheduleExport=$(echo "$singleSchedulerJson" | jq '.')
+        if [ -z "$singleScheduleExport" ] || [ "$singleScheduleExport" == "null" ]; then
+            echo "⚠️ Skipping: No data for $serviceName"
+            continue
+        fi
 
-            if [ -z "$singleScheduleExport" ] || [ "$singleScheduleExport" == "null" ]; then
-                echo "⚠️ Skipping: No data for $serviceName"
-                continue
-            fi
+        if echo "$singleScheduleExport" | jq empty 2>/dev/null; then
+            individual_file="$output_dir/${serviceName}_scheduler.json"
+            echo "$singleScheduleExport" | jq '.' > "$individual_file"
+            echo "✅ Saved: $individual_file"
+        else
+            echo "⚠️ Skipping invalid JSON for service: $serviceName"
+        fi
 
-            if echo "$singleScheduleExport" | jq empty 2>/dev/null; then
-                # Append to single array (optional)
-                single_schedule_array=$(echo "$single_schedule_array" | jq --argjson newItem "$singleScheduleExport" '. + [$newItem]')
-
-                # Save individual file
-                individual_file="$output_dir/${serviceName}_scheduler.json"
-                echo "$singleScheduleExport" | jq '.' > "$individual_file"
-                echo "✅ Saved: $individual_file"
-            else
-                echo "⚠️ Skipping invalid JSON for service: $serviceName"
-            fi
-
-        done < "$SchedulersKeyList_file"
-
-        echo "$single_schedule_array" | jq '.' > "$output_file"
-        echo "✅ Full scheduler config written to: $output_file"
-   #  fi
+    done < "$SchedulersKeyList_file"
 }
 
 # Start execution
