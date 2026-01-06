@@ -308,7 +308,7 @@ function exportAsset(){
                       if [[ $assetType = project_variable* ]]; then
                         echo "Calling project variable script"
                         echod "Project variable Export Process is Start"
-                        ../self/pipelines/scripts/exportProjectVariable.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID"
+                        ../self/pipelines/scripts/exportProjectVariable.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$envTypes" "$source_type" "$debug"
                         echod "project variable Export Process is End"
                         echod $(ls -ltr)
                         return

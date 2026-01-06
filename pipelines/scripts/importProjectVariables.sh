@@ -44,6 +44,7 @@ function importProjectVariables() {
   repoName=$4
   HOME_DIR=$5
   assetID=$6
+  source_type=${7:-}
   debug=${@: -1}
 
   if [ "${debug}" == "debug" ]; then
@@ -53,13 +54,18 @@ function importProjectVariables() {
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 
-        output_dir="./assets/projectConfigs/ProjectVariable"
+        output_dir="./assets/projectConfigs/projectVariables/${assetID}"
         mkdir -p "$output_dir"
 
-        individual_file="$output_dir/${assetID}_ProjectVariable.json"
+        # prefer env-specific file; else fallback to any json
+        if [ -n "$source_type" ] && [ -f "${output_dir}/${assetID}-${source_type}.json" ]; then
+          individual_file="${output_dir}/${assetID}-${source_type}.json"
+        else
+          individual_file="$(ls -1 ${output_dir}/${assetID}-*.json 2>/dev/null | head -n1 || true)"
+        fi
 
   if [ -f "$individual_file" ]; then
-    echod "✅ Project Variables list found at: ${individual_file}"
+    echod "✅ Project Variables file found: ${individual_file}"
 
     IMPORT_PROJECT_VARIABLES_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/configurations/variables?type=projectVariable"
 

@@ -19,7 +19,7 @@
 #################################################################################################################################################################
 
 
-set -x
+set -euo pipefail
 echo "Starting exportProjectVariable.sh"
 echo "Arguments: $@"
 
@@ -36,6 +36,8 @@ function exportProjectVariableList() {
     repoName=$4
     HOME_DIR=$5
     assetID=$6
+    envTypes=${7:-}
+    source_type=${8:-}
     debug=${@: -1}
 
     # Debug mode
@@ -56,7 +58,7 @@ function exportProjectVariableList() {
 
     cd "${HOME_DIR}/${repoName}" || exit 1
 
-	if [ -z "$assetID" ] || [ "$assetID" = "null" ]; then
+	if [ -z "$assetID" ] || [ "$assetID" = "null" ] || [ "$assetID" = "NA" ]; then
     PROJECT_VARIABLE_EXPORT_LIST_URL="${LOCAL_DEV_URL}/apis/v2/rest/projects/${repoName}/configurations/variables?type=ProjectVariable"
 
     # Call API to get Project variable list
@@ -72,19 +74,27 @@ function exportProjectVariableList() {
         return
     fi
 
-    # Pretty print for local storage
-    ProjectVariableListExport=$(echo "$ProjectVariableListJson" | jq '.')
+    mapfile -t pv_names < <(echo "$ProjectVariableListJson" | jq -r '.output[]?.name // empty')
+    if [ ${#pv_names[@]} -eq 0 ]; then
+        echo "ℹ️ No Project Variables found; skipping export."
+        return
+    fi
 
-    output_dir="./assets/projectConfigs/ProjectVariable"
+    output_dir="./assets/projectConfigs/projectVariables"
     mkdir -p "$output_dir"
 
     # Save full export
     export_file="$output_dir/ProjectVariable_List_Full.json"
-    echo "$ProjectVariableListExport" > "$export_file"
+    echo "$ProjectVariableListJson" | jq '.' > "$export_file"
     echo "✅ Full project variable list saved to: $export_file"
+
+    for pv in "${pv_names[@]}"; do
+      echod "Exporting project variable: $pv"
+      exportProjectVariable "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$pv" "$envTypes" "$source_type" "$debug"
+    done
 	fi
     else
-        exportProjectVariable "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID"
+        exportProjectVariable "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$envTypes" "$source_type" "$debug"
     fi 
 }
 
@@ -94,6 +104,9 @@ function exportProjectVariable() {
     admin_password=$3
     repoName=$4
     assetID=$5
+    envTypes=${6:-}
+    source_type=${7:-}
+    debug=${@: -1}
 
     echod "Running exportProjectVariable with parameters:"
     echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"
@@ -115,12 +128,16 @@ function exportProjectVariable() {
     fi
 
     if echo "$ProjectVariableJson" | jq empty 2>/dev/null; then
-        output_dir="./assets/projectConfigs/ProjectVariable"
+        output_dir="./assets/projectConfigs/projectVariables/${assetID}"
         mkdir -p "$output_dir"
 
-        individual_file="$output_dir/${assetID}_ProjectVariable.json"
-        echo "$ProjectVariableJson" | jq '.' > "$individual_file"
-        echo "✅ Saved: $individual_file"
+        base_file="${output_dir}/${assetID}-${source_type}.json"
+        echo "$ProjectVariableJson" | jq '.' > "$base_file"
+        echo "✅ Saved: $base_file"
+
+        if [ -n "${envTypes:-}" ]; then
+          configPerEnv "$output_dir" "$envTypes" "project_variable" "${assetID}-${source_type}.json" "$assetID"
+        fi
     else
         echo "⚠️ Skipping invalid JSON for assetID: $assetID"
     fi

@@ -15,7 +15,7 @@ function configPerEnv(){
     if [ "${configType}" == "referenceData" ]; then
        cp "${dir}/${sourceFile}" "${dir}/${v}.csv"
     else
-       if [[ "$configType" == "project_parameter" || "$configType" == "connection" || "$configType" == "scheduler" || "$configType" == "certificate" ]]; then
+       if [[ "$configType" == "project_parameter" || "$configType" == "connection" || "$configType" == "scheduler" || "$configType" == "certificate" || "$configType" == "project_variable" ]]; then
            cp "${dir}/${sourceFile}" "${dir}/${key}-${v}.json"
        fi
     fi
