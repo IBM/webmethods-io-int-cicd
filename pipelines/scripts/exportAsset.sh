@@ -26,6 +26,7 @@ azure_tenant_id=${18}        # Azure AD tenant ID
 sp_app_id=${19}              # Service Principal App ID (aka client_id)
 sp_password=${20}            # Service Principal password (aka client_secret)
 access_object_id=${21}
+skipFailedAsset=${22:-"false"}    # Optional: skip failed asset exports and continue
 debug=${@: -1}
 
 if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
@@ -60,6 +61,18 @@ source "${SCRIPT_DIR}/configPerEnv.sh"
 [ -z "$access_object_id" ] && echo "Missing template parameter access_object_id" >&2 && exit 1
 
 PROJECT_CONFIG_FILE="${HOME_DIR}/${repoName}/project-config.yml"
+
+# Handle export errors; optionally continue when skipFailedAsset is true
+function handleExportError(){
+  local message="$1"
+  echod "Export error: $message"
+  echo "$message"
+  if [ "$skipFailedAsset" == "true" ]; then
+    return 1
+  else
+    exit 1
+  fi
+}
 
 # Debug / Trace mode
 if [ "$debug" == "trace" ]; then
@@ -402,6 +415,8 @@ function splitAndExportAssets() {
   includeAllReferenceData=$9
   local assetNameList="$5"
   local assetTypeList="$6"
+  local failed_assets=()
+  local status=0
 
   # Desired processing order
   local desiredOrder=("referenceData" "rest_api" "soap_api" "project_parameter" "workflow" "flowservice" "dafservice" "Scheduler" "project_configuration" "project_variable" "certificate" "account" "connection" "vault_variables")
@@ -451,10 +466,31 @@ function splitAndExportAssets() {
     for (( i=0; i<$lenNames; i++ )); do
       if [ "${assetTypes[$i]}" == "$orderType" ]; then
         echo "Processing ${assetNames[$i]} of type ${assetTypes[$i]}"
-        exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetNames[$i]} ${assetTypes[$i]} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        if ! exportAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetNames[$i]} ${assetTypes[$i]} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}; then
+          echo "⚠️  Export failed for asset '${assetNames[$i]}' of type '${assetTypes[$i]}'"
+          failed_assets+=("${assetNames[$i]} (${assetTypes[$i]})")
+          if [ "$skipFailedAsset" != "true" ]; then
+            status=1
+            break 2
+          fi
+        fi
       fi
     done
   done
+
+  if [ ${#failed_assets[@]} -gt 0 ]; then
+    echo "===== Failed asset exports ====="
+    for entry in "${failed_assets[@]}"; do
+      echo " - $entry"
+    done
+    if [ "$skipFailedAsset" == "true" ]; then
+      echo "Completed with failed assets skipped (see list above)."
+    else
+      status=1
+    fi
+  fi
+
+  return $status
 }
 function exportProjectParameters(){
 
