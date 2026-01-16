@@ -17,6 +17,9 @@ devUser=$7
 featureBranchName=$8
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
 
 # Validate required inputs
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
@@ -29,13 +32,17 @@ debug=${@: -1}
 
    
 # Debug mode
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 # Ensure directory exists

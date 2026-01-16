@@ -16,6 +16,10 @@ destUser=$7
 assetID=$8
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
     if [ -z "$LOCAL_DEV_URL" ]; then
       echo "Missing template parameter LOCAL_DEV_URL"
       exit 1
@@ -51,16 +55,18 @@ debug=${@: -1}
       echo "Missing template parameter assetID"
       exit 1
     fi
- if [ "$debug" == "debug" ]; then
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
     echo "......Running in Debug mode ......"
-  fi
+fi
 
 
 function echod(){
   
-  if [ "$debug" == "debug" ]; then
-    echo $1
-    set -x
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
   fi
 
 }
@@ -111,5 +117,4 @@ else
     echo "Deploy Succeeded:" ${deployResponse}
 fi
 set +x
-
 

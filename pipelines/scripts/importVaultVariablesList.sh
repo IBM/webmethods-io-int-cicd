@@ -28,11 +28,33 @@ IFS=$'\n\t'
 #                                                                                                                                            #
 ##############################################################################################################################################
 
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+HOME_DIR=$5
+synchProject=$6
+debug=${@: -1}
+
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
+
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
 # Debug echo function
 
 function echod() {
-  echo "[DEBUG]: ""$@" >&2
+    if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+        echo "$@" >&2
+    fi
 }
+
 
 # Import vault variables from JSON files listed in vaultVariables_keys.txt
 function importVaultVariables() {
@@ -44,10 +66,7 @@ function importVaultVariables() {
   local synchProject=$6
    debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
-    echo "......Running in Debug mode ......" >&2
-    set -x
-  fi
+ 
 
   local vault_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/vaultVariables"
   local vault_file="${vault_dir}/vaultVariables_keys.txt"

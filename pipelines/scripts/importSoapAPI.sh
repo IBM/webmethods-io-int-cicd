@@ -15,9 +15,30 @@
 #   assetType       - Type of the asset (e.g., soap_api, recipe)
 #   HOME_DIR        - Path to the base working directory
 ################################################################################################################################################################
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+assetID=$5
+assetType=$6
+HOME_DIR=$7
+debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
+
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
 function echod() {
-  echo "$@" >&2
+    if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+        echo "$@" >&2
+    fi
 }
 
 function importSOAPAsset() {
@@ -30,9 +51,14 @@ function importSOAPAsset() {
   HOME_DIR=$7
   debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
-    echo "......Running in Debug mode ......" >&2
-    set -x
+  if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+      debug=""
+  fi
+  if [ "$debug" == "trace" ]; then
+      echo "......Running in Trace mode ......" >&2
+      set -x
+  elif [ "$debug" == "debug" ]; then
+      echo "......Running in Debug mode ......" >&2
   fi
 
   echo "Current directory: $(pwd)"

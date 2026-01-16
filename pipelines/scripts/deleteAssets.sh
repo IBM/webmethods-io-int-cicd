@@ -15,6 +15,10 @@ assetType=$6
 deleteProject=$7
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
     if [ -z "$LOCAL_DEV_URL" ]; then
       echo "Missing template parameter LOCAL_DEV_URL"
       exit 1
@@ -46,16 +50,18 @@ debug=${@: -1}
       echo "Missing template parameter destEnv"
       exit 1
     fi
- if [ "$debug" == "debug" ]; then
-    echo "......Running in Debug mode ......"
-  fi
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
+  set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......"
+fi
 
 
 function echod(){
   
-  if [ "$debug" == "debug" ]; then
-    echo $1
-    set -x
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
   fi
 
 }
@@ -170,4 +176,3 @@ fi
 
 
 set +x
-

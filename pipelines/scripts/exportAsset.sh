@@ -28,6 +28,10 @@ sp_password=${20}            # Service Principal password (aka client_secret)
 access_object_id=${21}
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/secretManager.sh"
 source "${SCRIPT_DIR}/configPerEnv.sh"
@@ -57,14 +61,18 @@ source "${SCRIPT_DIR}/configPerEnv.sh"
 
 PROJECT_CONFIG_FILE="${HOME_DIR}/${repoName}/project-config.yml"
 
-# Debug mode
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+# Debug / Trace mode
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 function exportSingleReferenceData () {

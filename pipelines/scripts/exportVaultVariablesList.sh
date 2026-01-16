@@ -21,12 +21,31 @@
 #################################################################################################################################################################
 
 
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+HOME_DIR=$5
+debug=${@: -1}
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
+
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
 echo "Starting exportVaultVariablesList.sh"
 echo "Arguments: $@"
 
 
 function echod() {
-        echo "$@" >&2   
+        if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+                echo "$@" >&2   
+        fi
 }
 
 function exportVaultVariablesList() {
@@ -38,11 +57,7 @@ function exportVaultVariablesList() {
     HOME_DIR=$5
     debug=${@: -1}
 
-    # Debug mode
-    if [ "$debug" == "debug" ]; then
-        echo "......Running in Debug mode ......" >&2
-        set -x
-    fi
+
 
     echod "Running exportVaultVariablesList with parameters:"
     echod "LOCAL_DEV_URL=$1"
@@ -137,4 +152,3 @@ vaultVariablesExport=$(echo "$variableJson" | jq '.')
 }
                                                                                                                               
 exportVaultVariablesList "$@"
-

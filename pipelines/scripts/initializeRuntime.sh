@@ -14,6 +14,10 @@ visibility=$5
 description=$6
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
     if [ -z "$LOCAL_DEV_URL" ]; then
       echo "Missing template parameter LOCAL_DEV_URL"
       exit 1
@@ -39,16 +43,18 @@ debug=${@: -1}
       exit 1
     fi
 
-    if [ "$debug" == "debug" ]; then
-      echo "......Running in Debug mode ......"
+    if [ "$debug" == "trace" ]; then
+      echo "......Running in Trace mode ......"
       set -x
+    elif [ "$debug" == "debug" ]; then
+      echo "......Running in Debug mode ......"
     fi
 
 
 function echod(){
   
-  if [ "$debug" == "debug" ]; then
-    echo $1
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" 
   fi
 
 }
@@ -105,4 +111,3 @@ else
     echo "Failed with Status Code: "$status "and message: "$message
     exit 1
 fi
-

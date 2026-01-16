@@ -18,13 +18,32 @@
 #   HOME_DIR        - Path to the base working directory where exported files will be stored                                                                    #
 #################################################################################################################################################################
 
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+HOME_DIR=$5
+assetID=$6
+debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
 
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
 echo "Starting exportProjectConfiguration.sh"
 echo "Arguments: $@"
 
 function echod() {
-        echo "$@" >&2   
+        if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+                echo "$@" >&2
+        fi   
 }
 
 function exportProjectConfigurationList() {
@@ -36,11 +55,6 @@ function exportProjectConfigurationList() {
     assetID=$6
     debug=${@: -1}
 
-    # Debug mode
-    if [ "$debug" == "debug" ]; then
-        echo "......Running in Debug mode ......" >&2
-        set -x
-    fi
 
     echod "Running exportProjectConfigurationList with parameters:"
     echod "LOCAL_DEV_URL=$LOCAL_DEV_URL"

@@ -32,9 +32,29 @@ set -euo pipefail
 #                          "true"  → Import schedulers one-by-one from SchedulersKeyList.json                                                                   #
 #                          "false" → Bulk import schedulers from SchedulersList.json                                                                            #
 #################################################################################################################################################################
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+HOME_DIR=$5
+assetID=$6
+debug=${@: -1}
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
+
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 ## Import multiple schedulers from list
@@ -48,10 +68,7 @@ function importSingleScheduler() {
   assetID=$6
   debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
-    echo "......Running in Debug mode ......" >&2
-    set -x
-  fi
+ 
   scheduler_file="${HOME_DIR}/${repoName}/assets/projectConfigs/schedulers/SchedulersKeyList.json"
 
   if [ ! -f "$scheduler_file" ]; then
@@ -140,9 +157,14 @@ function importScheduler() {
   SINGLE_SCHEDULER=$6
   debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
-    echo "......Running in Debug mode ......" >&2
+  if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+  fi
+  if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
     set -x
+  elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
   fi
 
   cd "${HOME_DIR}/${repoName}" || exit 1
@@ -194,8 +216,14 @@ function projectImportschedulers() {
   SINGLE_SCHEDULER=$6
   debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
+  if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+  fi
+  if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
     set -x
+  elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
   fi
 
   scheduler_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/schedulers"

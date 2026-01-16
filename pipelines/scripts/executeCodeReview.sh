@@ -17,6 +17,10 @@ isccrDir=$8
 customConfigPath=$9
 debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
 # Validate required inputs
 [ -z "$HOME_DIR" ] && echo "Missing template parameter HOME_DIR" >&2 && exit 1
 [ -z "$individualAssetExport" ] && echo "Missing template parameter individualAssetExport" >&2 && exit 1
@@ -28,14 +32,18 @@ debug=${@: -1}
 [ -z "$isccrDir" ] && echo "Missing template parameter isccrDir" >&2 && exit 1
 [ -z "$customConfigPath" ] && echo "Missing template parameter customConfigPath" >&2 && exit 1
 
-# Debug mode
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+# Debug / Trace mode
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 
@@ -97,5 +105,4 @@ runCodeReview ${HOME_DIR} ${isccrDir} ${isccrImg}
 
 
 set +x
-
 

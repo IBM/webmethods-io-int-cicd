@@ -13,20 +13,29 @@ repoName="$4"
 inuid="$5"
 debug="${@: -1}"
 
+# Normalize debug flag
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
 # Validate required inputs
 [ -z "$LOCAL_DEV_URL" ] && echo "Missing template parameter LOCAL_DEV_URL" >&2 && exit 1
 [ -z "$admin_user" ] && echo "Missing template parameter admin_user" >&2 && exit 1
 [ -z "$admin_password" ] && echo "Missing template parameter admin_password" >&2 && exit 1
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
 
-# Debug mode
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+# Debug / Trace mode
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 PROJECT_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}"

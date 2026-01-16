@@ -15,18 +15,26 @@ PAT="$5"              # Optional, for future use
 HOME_DIR="$6"         # Optional, for future use
 debug="${@: -1}"
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
 # Validate required inputs
 [ -z "$provider" ] && echo "Missing provider" >&2 && exit 1
 [ -z "$secretName" ] && echo "Missing secretName" >&2 && exit 1
 [ -z "$repoUser" ] && echo "Missing vault name or repo user" >&2 && exit 1
 
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
 case "$provider" in

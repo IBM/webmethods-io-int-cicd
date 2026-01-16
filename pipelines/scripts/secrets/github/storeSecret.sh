@@ -14,6 +14,10 @@
  HOME_DIR=$6
  debug=${@: -1}
 
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
 # Validate required inputs
 [ -z "$secretName" ] && echo "Missing template parameter secretName" >&2 && exit 1
 [ -z "$secretValue" ] && echo "Missing template parameter secretValue" >&2 && exit 1
@@ -24,13 +28,17 @@
 
 
 # Debug mode
-if [ "$debug" == "debug" ]; then
-  echo "......Running in Debug mode ......" >&2
+if [ "$debug" == "trace" ]; then
+  echo "......Running in Trace mode ......" >&2
   set -x
+elif [ "$debug" == "debug" ]; then
+  echo "......Running in Debug mode ......" >&2
 fi
 
 function echod() {
-  echo "$@" >&2
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" >&2
+  fi
 }
 
   # Get public key (to encrypt secret)

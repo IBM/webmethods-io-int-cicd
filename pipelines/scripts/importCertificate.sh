@@ -31,8 +31,29 @@ set -euo pipefail
 #   assetID            - service name of the Certificate                                                                              #
 #################################################################################################################################################################
 
+LOCAL_DEV_URL=$1
+admin_user=$2
+admin_password=$3
+repoName=$4
+HOME_DIR=$5
+assetID=$6
+debug=${@: -1}
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+    debug=""
+fi
+
+# Debug mode
+if [ "$debug" == "trace" ]; then
+    echo "......Running in Trace mode ......" >&2
+    set -x
+elif [ "$debug" == "debug" ]; then
+    echo "......Running in Debug mode ......" >&2
+fi
+
 function echod() {
-        echo "$@" >&2   
+        if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
+                echo "$@" >&2   
+        fi
 }
 
 
@@ -47,10 +68,6 @@ function importCertificate() {
   assetID=$6
   debug=${@: -1}
 
-  if [ "${debug}" == "debug" ]; then
-    echo "......Running in Debug mode ......" >&2
-    set -x
-  fi
 
   cd "${HOME_DIR}/${repoName}" || exit 1
 

@@ -21,15 +21,21 @@ debug=${@: -1}
       exit 1
     fi
 
-    if [ "$debug" == "debug" ]; then
+if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
+  debug=""
+fi
+
+    if [ "$debug" == "trace" ]; then
+      echo "......Running in Trace mode ......"
       set -x
+    elif [ "$debug" == "debug" ]; then
       echo "......Running in Debug mode ......"
     fi
 
 
 function echod(){
-  if [ "$debug" == "debug" ]; then
-    echo $1 
+  if [ "$debug" == "debug" ] || [ "$debug" == "trace" ]; then
+    echo "$@" 
   fi
 
 }
@@ -59,5 +65,4 @@ fi
 echo $envs
 
 set +x
-
 
