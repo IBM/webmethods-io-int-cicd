@@ -604,8 +604,8 @@ function splitAndImportAssets() {
   local assetNameList="$5"
   local assetTypeList="$6"
 
-  # Desired processing order
-  local desiredOrder=("referenceData" "rest_api" "soap_api" "project_parameter" "workflow" "flowservice" "dafservice" "Scheduler" "project_configuration" "project_variable" "certificate" "account" "connection" "vault_variables")
+  # Desired processing order (APIs first so they create the project if needed)
+  local desiredOrder=("rest_api" "soap_api" "referenceData" "project_parameter" "workflow" "flowservice" "dafservice" "Scheduler" "project_configuration" "project_variable" "certificate" "account" "connection" "vault_variables")
 
   # Normalize input: remove spaces around commas
   assetNameList=$(echo "$assetNameList" | sed 's/ *, */,/g')
@@ -663,12 +663,7 @@ cd ${HOME_DIR}/${repoName}
 
 if [ ${synchProject} == true ]; then
 
-  # Connections import
-  assetID=${assetIDList}
-  assetType=Connection
-  importConnections ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
-
-  # APIs import
+  # APIs import first (creates project if needed)
   echod "Listing files"
   shopt -s nullglob dotglob
   api_files=(./assets/rest_api/*.zip)
@@ -684,6 +679,27 @@ if [ ${synchProject} == true ]; then
   else
     echod "No rest apis to import"
   fi
+
+  # SOAP APIs next
+  shopt -s nullglob dotglob
+  soap_files=(./assets/soap_api/*.zip)
+  if [ ${#soap_files[@]} -gt 0 ]; then
+    for filename in ./assets/soap_api/*.zip; do 
+        base_name=${filename##*/}
+        parent_name="$(basename "$(dirname "$filename")")"
+        base_name=${base_name%.*}
+        echod $base_name${filename%.*}
+        echod $parent_name
+        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+    done
+  else
+    echod "No soap_api to import"
+  fi
+
+  # Connections import (after APIs create project)
+  assetID=${assetIDList}
+  assetType=Connection
+  importConnections ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
 
   # Workflows import
   shopt -s nullglob dotglob
@@ -733,21 +749,6 @@ if [ ${synchProject} == true ]; then
     echod "No DAFservices to import"
   fi
   
-  # soap_api import
-  shopt -s nullglob dotglob
-  fs_files=(./assets/soap_api/*.zip)
-  if [ ${#fs_files[@]} -gt 0 ]; then
-    for filename in ./assets/soap_api/*.zip; do 
-        base_name=${filename##*/}
-        parent_name="$(basename "$(dirname "$filename")")"
-        base_name=${base_name%.*}
-        echod $base_name${filename%.*}
-        echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
-    done
-  else
-    echod "No soap_api to import"
-  fi
   
 
   assetID=${assetIDList}

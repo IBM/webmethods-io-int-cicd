@@ -62,6 +62,13 @@ fi
 
 
 if [ -z "$uid" ]; then
+    # If REST API exports exist locally, let API import create the project
+    rest_api_dir="${HOME_DIR:-.}/${repoName}/assets/rest_api"
+    if [ -d "$rest_api_dir" ] && ls "$rest_api_dir"/*.zip >/dev/null 2>&1; then
+      echod "Project not found, but REST API exports detected. Skipping explicit project creation; project will be created during API import."
+      exit 0
+    fi
+
     echod "Project does not exist. Creating..."  
     CREATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects"
 
