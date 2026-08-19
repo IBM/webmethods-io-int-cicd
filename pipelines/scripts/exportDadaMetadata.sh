@@ -27,7 +27,7 @@ function echod() {
   fi
 }
 
-config_url="${LOCAL_DEV_URL}/apis/v1/rest/projects/${project_name}/configurations"
+config_url="${LOCAL_DEV_URL}/apis/v2/rest/projects/${project_name}/configurations"
 response_file=$(mktemp)
 temp_dir=$(mktemp -d)
 trap 'rm -f "$response_file"; rm -rf "$temp_dir"' EXIT
@@ -51,7 +51,12 @@ if ! jq empty "$response_file" >/dev/null 2>&1; then
   exit 1
 fi
 
-package_count=$(jq -r '(.configurations.packages // []) | length' "$response_file")
+if ! jq -e '.configurations.packages | type == "array"' "$response_file" >/dev/null 2>&1; then
+  echo "Project configuration response does not contain a configurations.packages array." >&2
+  exit 1
+fi
+
+package_count=$(jq -r '.configurations.packages | length' "$response_file")
 destination="${automation_repo_dir}/assets/dada/config/scaffolding"
 
 if [ "$package_count" -eq 0 ]; then
