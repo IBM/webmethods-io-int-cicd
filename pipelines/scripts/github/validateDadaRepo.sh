@@ -19,7 +19,7 @@ fi
 [ -z "$project_name" ] && echo "Missing template parameter project_name" >&2 && exit 1
 
 dada_repo_name="${project_name}Project"
-dada_repo_url="https://github.com/${repo_user}/${dada_repo_name}.git"
+dada_repo_path="${repo_user}/${dada_repo_name}"
 api_url="https://api.github.com/repos/${repo_user}/${dada_repo_name}"
 
 if [[ "$debug" == "debug" || "$debug" == "trace" ]]; then
@@ -56,4 +56,4 @@ if [ -n "$remote_refs" ]; then
   exit 1
 fi
 
-echo "$dada_repo_url"
+echo "$dada_repo_path"

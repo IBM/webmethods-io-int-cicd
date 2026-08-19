@@ -13,7 +13,7 @@ repoName="$4"
 inuid="$5"
 dada_enabled="${6:-false}"
 dada_git_account_alias="${7:-}"
-dada_repository_url="${8:-}"
+dada_repository_path="${8:-}"
 dada_branch="${9:-dev}"
 instance_api_key="${10:-}"
 debug="${@: -1}"
@@ -35,7 +35,7 @@ fi
 
 if [ "$dada_enabled" == "true" ]; then
   [ -z "$dada_git_account_alias" ] && echo "Missing DADA Git connection alias" >&2 && exit 1
-  [ -z "$dada_repository_url" ] && echo "Missing DADA repository URL" >&2 && exit 1
+  [ -z "$dada_repository_path" ] && echo "Missing DADA repository path" >&2 && exit 1
   [ -z "$dada_branch" ] && echo "Missing DADA branch" >&2 && exit 1
 fi
 
@@ -92,7 +92,7 @@ if [ -z "$uid" ]; then
       json=$(jq -n \
         --arg name "$repoName" \
         --arg gitAccountName "$dada_git_account_alias" \
-        --arg pathToRepository "$dada_repository_url" \
+        --arg pathToRepository "$dada_repository_path" \
         --arg branch "$dada_branch" \
         '{name: $name, description: "Created by Automated CI as a DADA project", externalGitDetails: {gitAccountName: $gitAccountName, pathToRepository: $pathToRepository, branch: $branch}, syncStorage: "git"}')
     elif [ -n "$inuid" ]; then
@@ -126,7 +126,7 @@ if [ -z "$uid" ]; then
         echod "Project creation failed:"
         echod "$projectCreateResp"
         if [ "$dada_enabled" == "true" ]; then
-          echod "Verify that private Git connection alias '${dada_git_account_alias}' exists for the initiating webMethods user and can access '${dada_repository_url}'."
+          echod "Verify that private Git connection alias '${dada_git_account_alias}' exists for the initiating webMethods user and can access '${dada_repository_path}'."
         fi
         exit 1
     fi

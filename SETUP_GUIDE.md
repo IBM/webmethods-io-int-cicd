@@ -302,7 +302,7 @@ Before running the pipeline:
 2. In the Play/Build webMethods Integration environment, create a private Git connection for the user who will initialize the project.
 3. Grant that Git user read/write access to `<repoName>Project`.
 
-Set `dadaGitAccountAlias` to the exact connection alias configured in webMethods Integration. The pipeline validates that the repository exists and is empty, then links the project to the repository's `dev` branch. The Git connection is not created by the pipeline; initialization fails with guidance if the alias is missing or cannot access the repository.
+Set `dadaGitAccountAlias` to the exact connection alias configured in webMethods Integration. The pipeline validates that the repository exists and is empty, passes the provider-relative path `<gitOwner>/<repoName>Project` to webMethods Integration, and links the project to the repository's `dev` branch. The Git connection is not created by the pipeline; initialization fails with guidance if the alias is missing or cannot access the repository.
 
 ### Step 6.2: Monitor Pipeline Execution
 

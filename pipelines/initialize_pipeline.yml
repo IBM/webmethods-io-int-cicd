@@ -91,7 +91,7 @@ steps:
       dada_enabled=$(echo "${{ parameters.dadaEnabled }}" | tr '[:upper:]' '[:lower:]')
       echo "##vso[task.setvariable variable=dadaEnabledValue]${dada_enabled}"
       echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]"
-      echo "##vso[task.setvariable variable=dadaRepositoryUrl]"
+      echo "##vso[task.setvariable variable=dadaRepositoryPath]"
       echo "##vso[task.setvariable variable=dadaBranch]dev"
 
       if [ "$dada_enabled" != "true" ]; then
@@ -106,7 +106,7 @@ steps:
       fi
 
       chmod +x ./pipelines/scripts/github/validateDadaRepo.sh
-      if ! dada_repository_url=$(./pipelines/scripts/github/validateDadaRepo.sh \
+      if ! dada_repository_path=$(./pipelines/scripts/github/validateDadaRepo.sh \
           "$(repo_user)" \
           "$(PAT)" \
           "$(repoName)" \
@@ -115,7 +115,7 @@ steps:
         exit 1
       fi
 
-      echo "##vso[task.setvariable variable=dadaRepositoryUrl]${dada_repository_url}"
+      echo "##vso[task.setvariable variable=dadaRepositoryPath]${dada_repository_path}"
       echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]${dada_git_account_alias}"
   displayName: 'Validate DADA repository'
   workingDirectory: '$(System.DefaultWorkingDirectory)'
@@ -158,7 +158,7 @@ steps:
           "" \
           "$(dadaEnabledValue)" \
           "$(dadaGitAccountAliasValue)" \
-          "$(dadaRepositoryUrl)" \
+          "$(dadaRepositoryPath)" \
           "$(dadaBranch)" \
           "" \
           "debug" 2> >(tee >&2)); then
@@ -214,7 +214,7 @@ steps:
                 "" \
                 "$(dadaEnabledValue)" \
                 "$(dadaGitAccountAliasValue)" \
-                "$(dadaRepositoryUrl)" \
+                "$(dadaRepositoryPath)" \
                 "$(dadaBranch)" \
                 "" \
                 "debug" 2> >(tee >&2)); then
