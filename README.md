@@ -7,6 +7,9 @@ This document extends the [original automation framework for webMethods.io Integ
 
 ## 📌 What's New
 
+- ✅ **Initial DADA Project Support**
+  The initialization pipeline can create a Develop Anywhere, Deploy Anywhere project backed by an existing empty GitHub repository. For a project named `<projectName>`, the required repository is `<projectName>Project`; the linked branch is `dev`, and the user supplies the private Git connection alias during initialization.
+
 - ✅ **API (Integration) Support**  
   Automate API (integrations) promotion, alongside workflows, flowservices.
 
@@ -136,4 +139,3 @@ All content in these repositories including code has been provided by IBM under 
 - Develop Anywhere Deploy Anywhere (DADA / IWHI) support.
 - Individual asset support for Account/Connection
 - Unit Testing.
-

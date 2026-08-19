@@ -292,6 +292,18 @@ security_provider: "github"
    - **devUser**: Your GitHub username
 4. Click **Run**
 
+#### Optional: Initialize a DADA project
+
+Set `dadaEnabled` to `true` to create the project as a Develop Anywhere, Deploy Anywhere project backed by an external Git repository.
+
+Before running the pipeline:
+
+1. Create an empty GitHub repository named `<repoName>Project`. It must not contain commits or branches.
+2. In the Play/Build webMethods Integration environment, create a private Git connection for the user who will initialize the project.
+3. Grant that Git user read/write access to `<repoName>Project`.
+
+Set `dadaGitAccountAlias` to the exact connection alias configured in webMethods Integration. The pipeline validates that the repository exists and is empty, then links the project to the repository's `dev` branch. The Git connection is not created by the pipeline; initialization fails with guidance if the alias is missing or cannot access the repository.
+
 ### Step 6.2: Monitor Pipeline Execution
 
 1. Watch the pipeline run in real time

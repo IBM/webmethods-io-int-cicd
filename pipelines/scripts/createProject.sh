@@ -11,7 +11,16 @@ admin_user="$2"
 admin_password="$3"
 repoName="$4"
 inuid="$5"
+dada_enabled="${6:-false}"
+dada_git_account_alias="${7:-}"
+dada_repository_url="${8:-}"
+dada_branch="${9:-dev}"
+instance_api_key="${10:-}"
 debug="${@: -1}"
+
+if [[ "$dada_enabled" != "true" ]]; then
+  dada_enabled="false"
+fi
 
 # Normalize debug flag
 if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
@@ -23,6 +32,12 @@ fi
 [ -z "$admin_user" ] && echo "Missing template parameter admin_user" >&2 && exit 1
 [ -z "$admin_password" ] && echo "Missing template parameter admin_password" >&2 && exit 1
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
+
+if [ "$dada_enabled" == "true" ]; then
+  [ -z "$dada_git_account_alias" ] && echo "Missing DADA Git connection alias" >&2 && exit 1
+  [ -z "$dada_repository_url" ] && echo "Missing DADA repository URL" >&2 && exit 1
+  [ -z "$dada_branch" ] && echo "Missing DADA branch" >&2 && exit 1
+fi
 
 # Debug / Trace mode
 if [ "$debug" == "trace" ]; then
@@ -72,17 +87,34 @@ if [ -z "$uid" ]; then
     echod "Project does not exist. Creating..."  
     CREATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects"
 
-    if [ -n "$inuid" ]; then
+    if [ "$dada_enabled" == "true" ]; then
+      echod "Creating DADA project with user Git connection alias '${dada_git_account_alias}'..."
+      json=$(jq -n \
+        --arg name "$repoName" \
+        --arg gitAccountName "$dada_git_account_alias" \
+        --arg pathToRepository "$dada_repository_url" \
+        --arg branch "$dada_branch" \
+        '{name: $name, description: "Created by Automated CI as a DADA project", externalGitDetails: {gitAccountName: $gitAccountName, pathToRepository: $pathToRepository, branch: $branch}, syncStorage: "git"}')
+    elif [ -n "$inuid" ]; then
       echod "Creating with name & uid..."
-      json='{ "name": "'"${repoName}"'", "uid": "'"${inuid}"'", "description": "Created by Automated CI for feature branch"}'
+      json=$(jq -n --arg name "$repoName" --arg uid "$inuid" \
+        '{name: $name, uid: $uid, description: "Created by Automated CI for feature branch"}')
     else
       echod "Creating with only name..."
-      json='{ "name": "'"${repoName}"'", "description": "Created by Automated CI for feature branch"}'
+      json=$(jq -n --arg name "$repoName" \
+        '{name: $name, description: "Created by Automated CI for feature branch"}')
+    fi
+
+    curl_headers=(
+      --header 'Content-Type: application/json'
+      --header 'Accept: application/json'
+    )
+    if [ -n "$instance_api_key" ]; then
+      curl_headers+=(--header "x-instance-api-key: ${instance_api_key}")
     fi
 
     projectCreateResp=$(curl --silent --location --request POST "$CREATE_URL" \
-      --header 'Content-Type: application/json' \
-      --header 'Accept: application/json' \
+      "${curl_headers[@]}" \
       --data-raw "$json" -u "${admin_user}:${admin_password}")
 
     uidcreated=$(echo "$projectCreateResp" | jq -r '.output.uid // empty')
@@ -93,6 +125,9 @@ if [ -z "$uid" ]; then
     else
         echod "Project creation failed:"
         echod "$projectCreateResp"
+        if [ "$dada_enabled" == "true" ]; then
+          echod "Verify that private Git connection alias '${dada_git_account_alias}' exists for the initiating webMethods user and can access '${dada_repository_url}'."
+        fi
         exit 1
     fi
 else

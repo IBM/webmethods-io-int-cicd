@@ -1,3 +1,9 @@
+##### January 2026 Release ########
+1. Additional assets: Project variable, Certificates, Schedulers, SOAP APIs are now supported
+2. BitBucket environment variables for storing Account configurations
+3. Enhanced logging options
+4. Bug fixes
+
 ##### July 2025 Release ########
 1. Project creation with UID, removed the workaround to maintain same ProjectID
 2. Multi asset support: Now you can pass comma separated multiple assets to be exported/imported
