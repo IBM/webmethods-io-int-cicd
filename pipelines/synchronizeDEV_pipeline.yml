@@ -120,6 +120,11 @@ steps:
                 "debug" 2> >(tee >&2))
     fi 
 
+    echo "Importing external packages from destination-branch scaffolding ..."
+    ../self/pipelines/scripts/importDadaPackages.sh \
+      "${LOCAL_DEV_URL}" "$(admin_user)" "$(admin_password)" "$(repoName)" \
+      "${HOME_DIR}/$(repoName)" debug || exit $?
+
     echo "Importing asset ..."
     ../self/pipelines/scripts/importAsset.sh "${LOCAL_DEV_URL}" "$(admin_user)" "$(admin_password)" "$(repoName)" "$(assetIDList)" "$(assetTypeList)" "${HOME_DIR}" "$(synchProject)" "$(source_type)" "$(includeAllReferenceData)" "$(provider)" "$(AZURE_VAULT_NAME)" "$(AZURE_RESOURCE_GROUP)" "$(AZURE_LOCATION)" "$(AZURE_TENANT_ID)" "$(AZURE_CLIENT_ID)" "$(AZURE_CLIENT_SECRET)" "$(AZURE_ACCESS_OBJECT_ID)" "debug"
   displayName: 'Import Asset'
