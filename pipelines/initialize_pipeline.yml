@@ -106,11 +106,14 @@ steps:
       fi
 
       chmod +x ./pipelines/scripts/github/validateDadaRepo.sh
-      dada_repository_url=$(./pipelines/scripts/github/validateDadaRepo.sh \
-        "$(repo_user)" \
-        "$(PAT)" \
-        "$(repoName)" \
-        debug)
+      if ! dada_repository_url=$(./pipelines/scripts/github/validateDadaRepo.sh \
+          "$(repo_user)" \
+          "$(PAT)" \
+          "$(repoName)" \
+          debug); then
+        echo "##vso[task.logissue type=error;]DADA repository preflight failed. Repository initialization and project creation have been stopped."
+        exit 1
+      fi
 
       echo "##vso[task.setvariable variable=dadaRepositoryUrl]${dada_repository_url}"
       echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]${dada_git_account_alias}"
@@ -147,18 +150,25 @@ steps:
         echo "New repo created"
         ######## Check & Create Project 
         chmod +x ./self/pipelines/scripts/*.sh
-        project_id=$(./self/pipelines/scripts/createProject.sh \
-        "${LOCAL_DEV_URL}" \
-        "$(admin_user)" \
-        "$(admin_password)" \
-        "$(repoName)" \
-        "" \
-        "$(dadaEnabledValue)" \
-        "$(dadaGitAccountAliasValue)" \
-        "$(dadaRepositoryUrl)" \
-        "$(dadaBranch)" \
-        "" \
-        "debug" 2> >(tee >&2))
+        if ! project_id=$(./self/pipelines/scripts/createProject.sh \
+          "${LOCAL_DEV_URL}" \
+          "$(admin_user)" \
+          "$(admin_password)" \
+          "$(repoName)" \
+          "" \
+          "$(dadaEnabledValue)" \
+          "$(dadaGitAccountAliasValue)" \
+          "$(dadaRepositoryUrl)" \
+          "$(dadaBranch)" \
+          "" \
+          "debug" 2> >(tee >&2)); then
+          echo "##vso[task.logissue type=error;]Project creation failed. Project configuration will not be committed."
+          exit 1
+        fi
+        if [ "$(dadaEnabledValue)" = "true" ] && [ -z "$project_id" ]; then
+          echo "##vso[task.logissue type=error;]Project creation returned an empty project ID. Project configuration will not be committed."
+          exit 1
+        fi
         echo "Captured Project ID: [$project_id]"
         ./self/pipelines/scripts/github/commitProjectConfig.sh "$(repoName)" "project-config" ".project.project-id" "$project_id" "${HOME_DIR}" true "$(devUser)" "$(featureBranchName)" debug
         ./self/pipelines/scripts/github/commitProjectConfig.sh "$(repoName)" "project-config" ".project.project-name" "$(repoName)" "${HOME_DIR}" true "$(devUser)" "$(featureBranchName)" debug
@@ -196,18 +206,25 @@ steps:
               # Project Check
               chmod +x ../self/pipelines/scripts/*.sh
               echo "Check and create Project ..."
-              project_id=$(../self/pipelines/scripts/createProject.sh \
-              "${LOCAL_DEV_URL}" \
-              "$(admin_user)" \
-              "$(admin_password)" \
-              "$(repoName)" \
-              "" \
-              "$(dadaEnabledValue)" \
-              "$(dadaGitAccountAliasValue)" \
-              "$(dadaRepositoryUrl)" \
-              "$(dadaBranch)" \
-              "" \
-              "debug" 2> >(tee >&2))
+              if ! project_id=$(../self/pipelines/scripts/createProject.sh \
+                "${LOCAL_DEV_URL}" \
+                "$(admin_user)" \
+                "$(admin_password)" \
+                "$(repoName)" \
+                "" \
+                "$(dadaEnabledValue)" \
+                "$(dadaGitAccountAliasValue)" \
+                "$(dadaRepositoryUrl)" \
+                "$(dadaBranch)" \
+                "" \
+                "debug" 2> >(tee >&2)); then
+                echo "##vso[task.logissue type=error;]Project creation failed. Asset import has been stopped."
+                exit 1
+              fi
+              if [ "$(dadaEnabledValue)" = "true" ] && [ -z "$project_id" ]; then
+                echo "##vso[task.logissue type=error;]Project creation returned an empty project ID. Asset import has been stopped."
+                exit 1
+              fi
               echo "Captured Project ID: [$project_id]"
               # Import (align with synchronizeDEV: include provider/Azure params)
               echo "Importing asset ..."
