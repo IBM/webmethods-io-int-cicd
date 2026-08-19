@@ -77,9 +77,10 @@ fi
 
 
 if [ -z "$uid" ]; then
-    # If REST API exports exist locally, let API import create the project
+    # For a regular project, REST API import can create the project. A DADA
+    # project must be created explicitly before packages and APIs are imported.
     rest_api_dir="${HOME_DIR:-.}/${repoName}/assets/rest_api"
-    if [ -d "$rest_api_dir" ] && ls "$rest_api_dir"/*.zip >/dev/null 2>&1; then
+    if [ "$dada_enabled" != "true" ] && [ -d "$rest_api_dir" ] && ls "$rest_api_dir"/*.zip >/dev/null 2>&1; then
       echod "Project not found, but REST API exports detected. Skipping explicit project creation; project will be created during API import."
       exit 0
     fi
