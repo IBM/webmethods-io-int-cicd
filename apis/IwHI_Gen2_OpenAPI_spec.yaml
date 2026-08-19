@@ -956,21 +956,45 @@ paths:
                   flowservice_count: 0
         '401':
           description: Unauthorized
-      description: Create project in target tenant
+      description: Creates a project through the public API. DADA external Git fields are flattened under externalGitDetails.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+              - name
               properties:
                 name:
                   type: string
-                uid:
+                UID:
                   type: string
+                  description: Optional 24-character project UID.
+                externalGitDetails:
+                  type: object
+                  required:
+                  - gitAccountName
+                  - pathToRepository
+                  - branch
+                  properties:
+                    gitAccountName:
+                      type: string
+                    pathToRepository:
+                      type: string
+                    branch:
+                      type: string
+                syncStorage:
+                  type: string
+                  enum:
+                  - git
             example:
-              name: projectname
-              uid: fl5b58cb31eb65c61455cf22
+              name: apiTestDada
+              externalGitDetails:
+                gitAccountName: insrsa_github
+                pathToRepository: chini007/ApiTestDadaProject
+                branch: dev
+              syncStorage: git
     get:
       tags:
       - Projects

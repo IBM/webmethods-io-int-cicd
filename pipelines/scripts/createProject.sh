@@ -94,7 +94,7 @@ if [ -z "$uid" ]; then
         --arg gitAccountName "$dada_git_account_alias" \
         --arg pathToRepository "$dada_repository_path" \
         --arg branch "$dada_branch" \
-        '{name: $name, description: "Created by Automated CI as a DADA project", externalGitDetails: {gitAccountName: $gitAccountName, pathToRepository: $pathToRepository, branch: $branch}, syncStorage: "git"}')
+        '{name: $name, externalGitDetails: {gitAccountName: $gitAccountName, pathToRepository: $pathToRepository, branch: $branch}, syncStorage: "git"}')
     elif [ -n "$inuid" ]; then
       echod "Creating with name & uid..."
       json=$(jq -n --arg name "$repoName" --arg uid "$inuid" \
