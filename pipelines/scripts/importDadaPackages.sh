@@ -56,10 +56,10 @@ packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
     [ .[]
       | select(.name != $projectPackage)
       | {
-          name: .name,
+          packageName: .name,
           gitUrl: .gitUrl,
           gitServerName: .gitServerName,
-          gitUsername: .gitUsername,
+          gitUserName: .gitUsername,
           gitBranch: .gitBranch
         }
     ]
@@ -72,28 +72,23 @@ if [ "$package_count" -eq 0 ]; then
 fi
 
 if ! jq -e 'all(.[];
-  (.name | type == "string" and length > 0) and
+  (.packageName | type == "string" and length > 0) and
   (.gitUrl | type == "string" and length > 0) and
   (.gitServerName | type == "string" and length > 0) and
-  (.gitUsername | type == "string" and length > 0) and
+  (.gitUserName | type == "string" and length > 0) and
   (.gitBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
   echo "One or more external package entries have incomplete Git details." >&2
   exit 1
 fi
 
-import_url="${LOCAL_DEV_URL}/apis/v1/rest/projects/packages"
+import_url="${LOCAL_DEV_URL}/apis/v1/rest/projects/${project_name}/configurations/packages"
 response_file=$(mktemp)
 trap 'rm -f "$response_file"' EXIT
 
 echod "Importing ${package_count} external package(s) from destination-branch scaffolding."
-while IFS= read -r dependent_package; do
-  package_name=$(jq -r '.name' <<< "$dependent_package")
-  package_branch=$(jq -r '.gitBranch' <<< "$dependent_package")
-  payload=$(jq -n \
-    --arg projectName "$project_name" \
-    --arg projectPackageName "$project_package_name" \
-    --argjson dependentPackage "$dependent_package" \
-    '{projectName: $projectName, projectPackageName: $projectPackageName, dependentPackage: $dependentPackage}')
+while IFS= read -r package_payload; do
+  package_name=$(jq -r '.packageName' <<< "$package_payload")
+  package_branch=$(jq -r '.gitBranch' <<< "$package_payload")
 
   echod "Importing dependent package '${package_name}' from branch '${package_branch}'."
   http_status=$(curl --silent --show-error --location \
@@ -102,7 +97,7 @@ while IFS= read -r dependent_package; do
     --header 'Content-Type: application/json' \
     --header 'Accept: application/json' \
     --user "${admin_user}:${admin_password}" \
-    --data-raw "$payload") || {
+    --data-raw "$package_payload") || {
       echo "External package '${package_name}' import request failed." >&2
       exit 1
     }
