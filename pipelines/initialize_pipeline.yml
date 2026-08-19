@@ -88,35 +88,18 @@ steps:
   workingDirectory: '$(System.DefaultWorkingDirectory)'
   condition: succeeded()
 - script: |
-      dada_enabled=$(echo "${{ parameters.dadaEnabled }}" | tr '[:upper:]' '[:lower:]')
-      echo "##vso[task.setvariable variable=dadaEnabledValue]${dada_enabled}"
-      echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]"
-      echo "##vso[task.setvariable variable=dadaRepositoryPath]"
-      echo "##vso[task.setvariable variable=dadaBranch]dev"
-
-      if [ "$dada_enabled" != "true" ]; then
-        echo "DADA initialization is disabled."
-        exit 0
-      fi
-
-      dada_git_account_alias="${{ parameters.dadaGitAccountAlias }}"
-      if [ -z "$dada_git_account_alias" ]; then
-        echo "##vso[task.logissue type=error;]DADA Git connection alias is required when DADA initialization is enabled."
+      chmod +x ./pipelines/scripts/prepareDadaProject.sh ./pipelines/scripts/github/validateDadaRepo.sh
+      if ! dada_config=$(./pipelines/scripts/prepareDadaProject.sh \
+        "$(repo_user)" "$(PAT)" "$(repoName)" \
+        "${{ parameters.dadaEnabled }}" "${{ parameters.dadaGitAccountAlias }}" debug); then
+        echo "##vso[task.logissue type=error;]DADA preparation failed."
         exit 1
       fi
 
-      chmod +x ./pipelines/scripts/github/validateDadaRepo.sh
-      if ! dada_repository_path=$(./pipelines/scripts/github/validateDadaRepo.sh \
-          "$(repo_user)" \
-          "$(PAT)" \
-          "$(repoName)" \
-          debug); then
-        echo "##vso[task.logissue type=error;]DADA repository preflight failed. Repository initialization and project creation have been stopped."
-        exit 1
-      fi
-
-      echo "##vso[task.setvariable variable=dadaRepositoryPath]${dada_repository_path}"
-      echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]${dada_git_account_alias}"
+      echo "##vso[task.setvariable variable=dadaEnabledValue]$(echo "$dada_config" | jq -r '.enabled')"
+      echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]$(echo "$dada_config" | jq -r '.gitAccountAlias')"
+      echo "##vso[task.setvariable variable=dadaRepositoryPath]$(echo "$dada_config" | jq -r '.repository')"
+      echo "##vso[task.setvariable variable=dadaBranch]$(echo "$dada_config" | jq -r '.branch')"
   displayName: 'Validate DADA repository'
   workingDirectory: '$(System.DefaultWorkingDirectory)'
   condition: succeeded()
@@ -165,13 +148,11 @@ steps:
           echo "##vso[task.logissue type=error;]Project creation failed. Project configuration will not be committed."
           exit 1
         fi
-        if [ "$(dadaEnabledValue)" = "true" ] && [ -z "$project_id" ]; then
-          echo "##vso[task.logissue type=error;]Project creation returned an empty project ID. Project configuration will not be committed."
-          exit 1
-        fi
         echo "Captured Project ID: [$project_id]"
-        ./self/pipelines/scripts/github/commitProjectConfig.sh "$(repoName)" "project-config" ".project.project-id" "$project_id" "${HOME_DIR}" true "$(devUser)" "$(featureBranchName)" debug
-        ./self/pipelines/scripts/github/commitProjectConfig.sh "$(repoName)" "project-config" ".project.project-name" "$(repoName)" "${HOME_DIR}" true "$(devUser)" "$(featureBranchName)" debug
+        ./self/pipelines/scripts/github/saveProjectConfig.sh \
+          "$(repoName)" "$project_id" "${HOME_DIR}" "$(devUser)" "$(featureBranchName)" \
+          "$(dadaEnabledValue)" "$(dadaRepositoryPath)" "$(dadaBranch)" \
+          "$(dadaGitAccountAliasValue)" debug
       else
         ######## Create a feature branch from prod 
         echo "Repo Exists, Check and sync feature branch from Prod"
@@ -214,10 +195,6 @@ steps:
             "" \
             "debug" 2> >(tee >&2)); then
             echo "##vso[task.logissue type=error;]Project creation failed. Asset import has been stopped."
-            exit 1
-          fi
-          if [ "$(dadaEnabledValue)" = "true" ] && [ -z "$project_id" ]; then
-            echo "##vso[task.logissue type=error;]Project creation returned an empty project ID. Asset import has been stopped."
             exit 1
           fi
           echo "Captured Project ID: [$project_id]"
