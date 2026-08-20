@@ -91,7 +91,9 @@ steps:
       chmod +x ./pipelines/scripts/prepareDadaProject.sh ./pipelines/scripts/github/validateDadaRepo.sh
       if ! dada_config=$(./pipelines/scripts/prepareDadaProject.sh \
         "$(repo_user)" "$(PAT)" "$(repoName)" \
-        "${{ parameters.dadaEnabled }}" "${{ parameters.dadaGitAccountAlias }}" debug); then
+        "${{ parameters.dadaEnabled }}" "${{ parameters.dadaGitAccountAlias }}" \
+        "https://$(source_environment_hostname):$(source_environment_port)" \
+        "$(admin_user)" "$(admin_password)" debug); then
         echo "##vso[task.logissue type=error;]DADA preparation failed."
         exit 1
       fi
@@ -100,7 +102,7 @@ steps:
       echo "##vso[task.setvariable variable=dadaGitAccountAliasValue]$(echo "$dada_config" | jq -r '.gitAccountAlias')"
       echo "##vso[task.setvariable variable=dadaRepositoryPath]$(echo "$dada_config" | jq -r '.repository')"
       echo "##vso[task.setvariable variable=dadaBranch]$(echo "$dada_config" | jq -r '.branch')"
-  displayName: 'Validate DADA repository'
+  displayName: 'Ensure empty DADA repository'
   workingDirectory: '$(System.DefaultWorkingDirectory)'
   condition: succeeded()
 - script: |

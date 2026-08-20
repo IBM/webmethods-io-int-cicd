@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #############################################################################
-# validateDadaRepo.sh : Validates the empty GitHub repository required by a #
-# DADA project before webMethods Integration initializes it.                #
+# validateDadaRepo.sh : Ensures the GitHub DADA repository exists and is    #
+# empty before webMethods Integration initializes it.                       #
 #############################################################################
 
 repo_user="$1"
@@ -42,8 +42,23 @@ case "$status" in
     exit 1
     ;;
   404)
-    echo "DADA repository '${repo_user}/${dada_repo_name}' does not exist. Create an empty repository and rerun initialization." >&2
-    exit 1
+    create_payload=$(jq -n --arg name "$dada_repo_name" \
+      '{name: $name, private: true, auto_init: false}')
+    create_response=$(curl --silent --location \
+      --write-out $'\n%{http_code}' \
+      --user "${repo_user}:${PAT}" \
+      --header 'Accept: application/vnd.github+json' \
+      --header 'X-GitHub-Api-Version: 2022-11-28' \
+      --data "$create_payload" \
+      --request POST 'https://api.github.com/user/repos')
+    create_status=$(echo "$create_response" | tail -n 1)
+    if [ "$create_status" != "201" ]; then
+      create_body=$(echo "$create_response" | sed '$d')
+      echo "Failed to create DADA repository '${repo_user}/${dada_repo_name}' (HTTP ${create_status})." >&2
+      echo "$create_body" >&2
+      exit 1
+    fi
+    echo "Created empty DADA repository '${repo_user}/${dada_repo_name}'." >&2
     ;;
   *)
     echo "Unable to validate DADA repository '${repo_user}/${dada_repo_name}'. GitHub returned HTTP ${status}." >&2
