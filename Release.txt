@@ -1,3 +1,10 @@
+##### August 2026 Release ########
+1. Dada Support Phase 1 
+    a. Project with external Git
+    b. Imported package
+    c. Scaffolding and Project Mapping
+2. Bug fixes
+
 ##### January 2026 Release ########
 1. Additional assets: Project variable, Certificates, Schedulers, SOAP APIs are now supported
 2. BitBucket environment variables for storing Account configurations
