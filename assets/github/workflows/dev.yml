@@ -1,8 +1,8 @@
   name: DEV
 
-  # Run this workflow every time a commit gets pushed to main or a pull request gets opened against main
+  # Synchronize DEV only after a commit lands on the dev branch (for example, after a PR merge).
   on:
-    pull_request:
+    push:
       branches: 
         - dev
   jobs:
