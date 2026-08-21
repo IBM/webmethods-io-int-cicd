@@ -11,15 +11,15 @@ admin_user="$2"
 admin_password="$3"
 repoName="$4"
 inuid="$5"
-dada_enabled="${6:-false}"
-dada_git_account_alias="${7:-}"
-dada_repository_path="${8:-}"
-dada_branch="${9:-dev}"
+external_git_enabled="${6:-false}"
+external_git_account_alias="${7:-}"
+external_git_repository_path="${8:-}"
+external_git_branch="${9:-dev}"
 instance_api_key="${10:-}"
 debug="${@: -1}"
 
-if [[ "$dada_enabled" != "true" ]]; then
-  dada_enabled="false"
+if [[ "$external_git_enabled" != "true" ]]; then
+  external_git_enabled="false"
 fi
 
 # Normalize debug flag
@@ -33,10 +33,11 @@ fi
 [ -z "$admin_password" ] && echo "Missing template parameter admin_password" >&2 && exit 1
 [ -z "$repoName" ] && echo "Missing template parameter repoName" >&2 && exit 1
 
-if [ "$dada_enabled" == "true" ]; then
-  [ -z "$dada_git_account_alias" ] && echo "Missing DADA Git connection alias" >&2 && exit 1
-  [ -z "$dada_repository_path" ] && echo "Missing DADA repository path" >&2 && exit 1
-  [ -z "$dada_branch" ] && echo "Missing DADA branch" >&2 && exit 1
+if [ "$external_git_enabled" == "true" ]; then
+  [ -z "$external_git_account_alias" ] && echo "Missing external Git connection alias" >&2 && exit 1
+  [ "$external_git_account_alias" = "NA" ] && echo "External Git connection alias cannot be NA" >&2 && exit 1
+  [ -z "$external_git_repository_path" ] && echo "Missing external Git repository path" >&2 && exit 1
+  [ -z "$external_git_branch" ] && echo "Missing external Git branch" >&2 && exit 1
 fi
 
 # Debug / Trace mode
@@ -87,13 +88,13 @@ if [ -z "$uid" ]; then
     echod "Project does not exist. Creating..."  
     CREATE_URL="${LOCAL_DEV_URL}/apis/v1/rest/projects"
 
-    if [ "$dada_enabled" == "true" ]; then
-      echod "Creating DADA project with user Git connection alias '${dada_git_account_alias}'..."
+    if [ "$external_git_enabled" == "true" ]; then
+      echod "Creating project with external Git connection alias '${external_git_account_alias}'..."
       json=$(jq -n \
         --arg name "$repoName" \
-        --arg gitAccountName "$dada_git_account_alias" \
-        --arg pathToRepository "$dada_repository_path" \
-        --arg branch "$dada_branch" \
+        --arg gitAccountName "$external_git_account_alias" \
+        --arg pathToRepository "$external_git_repository_path" \
+        --arg branch "$external_git_branch" \
         '{name: $name, externalGitDetails: {gitAccountName: $gitAccountName, pathToRepository: $pathToRepository, branch: $branch}, syncStorage: "git"}')
     elif [ -n "$inuid" ]; then
       echod "Creating with name & uid..."
@@ -125,8 +126,8 @@ if [ -z "$uid" ]; then
     else
         echod "Project creation failed:"
         echod "$projectCreateResp"
-        if [ "$dada_enabled" == "true" ]; then
-          echod "Verify that private Git connection alias '${dada_git_account_alias}' exists for the initiating webMethods user and can access '${dada_repository_path}'."
+        if [ "$external_git_enabled" == "true" ]; then
+          echod "Verify that private Git connection alias '${external_git_account_alias}' exists for the initiating webMethods user and can access '${external_git_repository_path}'."
         fi
         exit 1
     fi

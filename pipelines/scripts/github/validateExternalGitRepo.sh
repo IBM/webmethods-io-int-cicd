@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #############################################################################
-# validateDadaRepo.sh : Ensures the GitHub DADA repository exists and is    #
+# Ensures the GitHub external Git repository exists and is empty before     #
 # empty before webMethods Integration initializes it.                       #
 #############################################################################
 
@@ -19,13 +19,13 @@ fi
 [ -z "$project_name" ] && echo "Missing template parameter project_name" >&2 && exit 1
 
 # Preserve the supplied project name for the physical GitHub repository.
-# Product-specific path casing is applied separately in prepareDadaProject.sh.
-dada_repo_name="${project_name}Project"
-dada_repo_path="${repo_user}/${dada_repo_name}"
-api_url="https://api.github.com/repos/${repo_user}/${dada_repo_name}"
+# Product-specific path casing is applied in prepareExternalGitProject.sh.
+external_git_repo_name="${project_name}Project"
+external_git_repo_path="${repo_user}/${external_git_repo_name}"
+api_url="https://api.github.com/repos/${repo_user}/${external_git_repo_name}"
 
 if [[ "$debug" == "debug" || "$debug" == "trace" ]]; then
-  echo "Validating DADA repository: ${repo_user}/${dada_repo_name}" >&2
+  echo "Validating external Git repository: ${external_git_repo_path}" >&2
 fi
 
 status=$(curl --silent --output /dev/null --write-out "%{http_code}" \
@@ -38,11 +38,11 @@ case "$status" in
   200)
     ;;
   401|403)
-    echo "Unable to access DADA repository '${repo_user}/${dada_repo_name}'. Check the GitHub PAT and repository permissions." >&2
+    echo "Unable to access external Git repository '${external_git_repo_path}'. Check the GitHub PAT and repository permissions." >&2
     exit 1
     ;;
   404)
-    create_payload=$(jq -n --arg name "$dada_repo_name" \
+    create_payload=$(jq -n --arg name "$external_git_repo_name" \
       '{name: $name, private: true, auto_init: false}')
     create_response=$(curl --silent --location \
       --write-out $'\n%{http_code}' \
@@ -54,23 +54,23 @@ case "$status" in
     create_status=$(echo "$create_response" | tail -n 1)
     if [ "$create_status" != "201" ]; then
       create_body=$(echo "$create_response" | sed '$d')
-      echo "Failed to create DADA repository '${repo_user}/${dada_repo_name}' (HTTP ${create_status})." >&2
+      echo "Failed to create external Git repository '${external_git_repo_path}' (HTTP ${create_status})." >&2
       echo "$create_body" >&2
       exit 1
     fi
-    echo "Created empty DADA repository '${repo_user}/${dada_repo_name}'." >&2
+    echo "Created empty external Git repository '${external_git_repo_path}'." >&2
     ;;
   *)
-    echo "Unable to validate DADA repository '${repo_user}/${dada_repo_name}'. GitHub returned HTTP ${status}." >&2
+    echo "Unable to validate external Git repository '${external_git_repo_path}'. GitHub returned HTTP ${status}." >&2
     exit 1
     ;;
 esac
 
-# A DADA repository must not contain commits before the product links it.
-remote_refs=$(git ls-remote "https://${repo_user}:${PAT}@github.com/${repo_user}/${dada_repo_name}.git" 2>/dev/null)
+# An external Git repository must not contain commits before the product links it.
+remote_refs=$(git ls-remote "https://${repo_user}:${PAT}@github.com/${external_git_repo_path}.git" 2>/dev/null)
 if [ -n "$remote_refs" ]; then
-  echo "DADA repository '${repo_user}/${dada_repo_name}' is not empty. The product requires a repository without commits or branches." >&2
+  echo "External Git repository '${external_git_repo_path}' is not empty. The product requires a repository without commits or branches." >&2
   exit 1
 fi
 
-echo "$dada_repo_path"
+echo "$external_git_repo_path"

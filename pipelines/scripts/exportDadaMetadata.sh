@@ -67,11 +67,15 @@ if [ "$package_count" -eq 0 ]; then
   exit 0
 fi
 
-dada_repository=$(yq e '.project.dada.repository // ""' "${automation_repo_dir}/project-config.yml")
-dada_branch=$(yq e '.project.dada.branch // "dev"' "${automation_repo_dir}/project-config.yml")
+dada_repository=$(yq e '.project."external-git".repository // .project.dada.repository // ""' "${automation_repo_dir}/project-config.yml")
+dada_api_repository_path=$(yq e '.project."external-git"."api-repository-path" // .project.dada.repository // ""' "${automation_repo_dir}/project-config.yml")
+dada_branch=$(yq e '.project."external-git".branch // .project.dada.branch // "dev"' "${automation_repo_dir}/project-config.yml")
 if [ -z "$dada_repository" ]; then
-  dada_repo_name="${project_name^}Project"
+  dada_repo_name="${project_name}Project"
   dada_repository="${repo_user}/${dada_repo_name}"
+fi
+if [ -z "$dada_api_repository_path" ]; then
+  dada_api_repository_path="${repo_user}/${project_name^}Project"
 fi
 
 echod "Detected ${package_count} imported package(s); reading DADA metadata from ${dada_repository}:${dada_branch}."
@@ -82,12 +86,12 @@ if ! bash "${script_dir}/github/cloneRepository.sh" \
   exit 1
 fi
 
-dada_repo_name="${dada_repository##*/}"
-source_scaffolding="${temp_dir}/dada-repository/config/scaffolding/${dada_repo_name}.yml"
+scaffolding_name="${dada_api_repository_path##*/}"
+source_scaffolding="${temp_dir}/dada-repository/config/scaffolding/${scaffolding_name}.yml"
 source_mapping="${temp_dir}/dada-repository/config/scaffolding/projectmapping.yml"
 
 if [ ! -f "$source_scaffolding" ]; then
-  echo "Required DADA scaffolding file 'config/scaffolding/${dada_repo_name}.yml' was not found." >&2
+  echo "Required DADA scaffolding file 'config/scaffolding/${scaffolding_name}.yml' was not found." >&2
   exit 1
 fi
 

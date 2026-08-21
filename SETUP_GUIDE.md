@@ -292,17 +292,19 @@ security_provider: "github"
    - **devUser**: Your GitHub username
 4. Click **Run**
 
-#### Optional: Initialize a DADA project
+#### Optional: Initialize a project with external Git
 
-Set `dadaEnabled` to `true` to create the project as a Develop Anywhere, Deploy Anywhere project backed by an external Git repository.
+Set `externalGitEnabled` to `true` to create the project with an external Git repository. DADA is a tenant capability; this flag controls only whether this project uses external Git.
 
 Before running the pipeline:
 
-1. Create an empty GitHub repository named `<RepoName>Project`, capitalizing the first character of the project name. It must not contain commits or branches.
+1. The pipeline creates an empty GitHub repository named `<repoName>Project`, preserving the supplied project-name casing. It must not contain commits or branches when webMethods Integration links it.
 2. In the Play/Build webMethods Integration environment, create a private Git connection for the user who will initialize the project.
 3. Grant that Git user read/write access to `<repoName>Project`.
 
-Set `dadaGitAccountAlias` to the exact connection alias configured in webMethods Integration. The pipeline validates that the repository exists and is empty, passes the provider-relative path `<gitOwner>/<RepoName>Project` to webMethods Integration, and links the project to the repository's `dev` branch. The Git connection is not created by the pipeline; initialization fails with guidance if the alias is missing or cannot access the repository.
+Set `externalGitAccountAlias` to the exact connection alias configured in webMethods Integration and set `externalGitBranch` to the branch that the project should use (the default is `dev`). The pipeline validates that the repository exists and is empty for a new project, passes the product-compatible repository path to webMethods Integration, and records both the physical and API repository paths in `project-config.yml`. The Git connection is not created by the pipeline; initialization fails before project creation if the alias is missing or set to `NA`.
+
+When initialization is rerun for an existing project and repository, the pipeline refreshes the external Git metadata in `project-config.yml`. This metadata update does not convert an existing internally managed project to external Git because no conversion API is currently used.
 
 ### Step 6.2: Monitor Pipeline Execution
 
