@@ -29,6 +29,9 @@ if [ -z "$dada_git_account_alias" ]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The product currently requires the first project character and "Project"
+# suffix to be uppercase in its API path. Keep that workaround separate from
+# the physical repository name created by validateDadaRepo.sh.
 dada_repository="${repo_user}/${project_name^}Project"
 
 project_uid=""
@@ -43,8 +46,8 @@ fi
 if [ -n "$project_uid" ]; then
   echo "Project '${project_name}' already exists; new-project DADA repository validation is not required." >&2
 else
-  if ! dada_repository=$("${script_dir}/github/validateDadaRepo.sh" \
-    "$repo_user" "$PAT" "$project_name" "$debug"); then
+  if ! "${script_dir}/github/validateDadaRepo.sh" \
+    "$repo_user" "$PAT" "$project_name" "$debug" >/dev/null; then
     echo "DADA repository preparation failed. Repository initialization and project creation have been stopped." >&2
     exit 1
   fi

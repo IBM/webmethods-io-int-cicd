@@ -18,9 +18,9 @@ fi
 [ -z "$PAT" ] && echo "Missing template parameter PAT" >&2 && exit 1
 [ -z "$project_name" ] && echo "Missing template parameter project_name" >&2 && exit 1
 
-# The product requires the repository base name to start with an uppercase
-# character even when the project name itself starts lowercase.
-dada_repo_name="${project_name^}Project"
+# Preserve the supplied project name for the physical GitHub repository.
+# Product-specific path casing is applied separately in prepareDadaProject.sh.
+dada_repo_name="${project_name}Project"
 dada_repo_path="${repo_user}/${dada_repo_name}"
 api_url="https://api.github.com/repos/${repo_user}/${dada_repo_name}"
 
