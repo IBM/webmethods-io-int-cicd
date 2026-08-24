@@ -5,9 +5,16 @@
 import io
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import zipfile
+
+
+GENERATED_EXPORT_ID = re.compile(rb"(?:pkg|fld)_[0-9a-fA-F]{32}_exported")
+MANIFEST_TIME = re.compile(
+    rb'(<value name="(?:time|created_date)">)[^<]*(</value>)'
+)
 
 
 def git(*args: str) -> bytes:
@@ -49,7 +56,50 @@ def digest(parts) -> str:
     return checksum.hexdigest()
 
 
-def semantic_checksum(path: str, content: bytes) -> str:
+def canonical_archive_name(name: str) -> str:
+    return GENERATED_EXPORT_ID.sub(
+        b"generated_export_package", name.encode("utf-8", "surrogateescape")
+    ).decode("utf-8", "surrogateescape")
+
+
+def normalize_archive_content(path: str, content: bytes) -> bytes:
+    normalized = GENERATED_EXPORT_ID.sub(b"generated_export_package", content)
+    if path.lower().endswith(("manifest.rel", "manifest.v3")):
+        normalized = MANIFEST_TIME.sub(rb"\1generated-export-time\2", normalized)
+    return normalized
+
+
+def semantic_checksum(path: str, content: bytes, inside_archive: bool = False) -> str:
+    if path.lower().endswith(".zip") or content.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as archive:
+                members = []
+                for info in archive.infolist():
+                    if info.is_dir():
+                        continue
+                    # The signature covers the generated package container and
+                    # therefore changes with its random ID and export timestamp.
+                    # Actual archive members remain independently checksummed.
+                    if info.filename.rsplit("/", 1)[-1] == "sig.txt":
+                        continue
+                    members.append(
+                        (
+                            canonical_archive_name(info.filename),
+                            semantic_checksum(info.filename, archive.read(info), True),
+                        )
+                    )
+                # ZIP entry timestamps, compression, order and other container
+                # metadata are intentionally excluded from this representation.
+                checksum_parts = ["zip"]
+                for member_name, member_checksum in sorted(members):
+                    checksum_parts.extend([member_name, member_checksum])
+                return digest(checksum_parts)
+        except (OSError, RuntimeError, zipfile.BadZipFile):
+            return digest(["bytes", content])
+
+    if inside_archive:
+        content = normalize_archive_content(path, content)
+
     if path.lower().endswith(".json"):
         try:
             parsed = json.loads(content.decode("utf-8"))
@@ -61,28 +111,6 @@ def semantic_checksum(path: str, content: bytes) -> str:
             ).encode("utf-8")
             return digest(["json", normalized])
         except (UnicodeDecodeError, json.JSONDecodeError):
-            return digest(["bytes", content])
-
-    if path.lower().endswith(".zip") or content.startswith(b"PK\x03\x04"):
-        try:
-            with zipfile.ZipFile(io.BytesIO(content)) as archive:
-                members = []
-                for info in archive.infolist():
-                    if info.is_dir():
-                        continue
-                    members.append(
-                        (
-                            info.filename,
-                            semantic_checksum(info.filename, archive.read(info)),
-                        )
-                    )
-                # ZIP entry timestamps, compression, order and other container
-                # metadata are intentionally excluded from this representation.
-                checksum_parts = ["zip"]
-                for member_name, member_checksum in sorted(members):
-                    checksum_parts.extend([member_name, member_checksum])
-                return digest(checksum_parts)
-        except (OSError, RuntimeError, zipfile.BadZipFile):
             return digest(["bytes", content])
 
     return digest(["bytes", content])
@@ -109,6 +137,8 @@ def main() -> int:
             continue
         if expected[0] != actual[0]:
             differences.append(("T", path))
+            continue
+        if expected[1] == actual[1]:
             continue
 
         expected_content = git("show", f"{expected_ref}:{path}")
