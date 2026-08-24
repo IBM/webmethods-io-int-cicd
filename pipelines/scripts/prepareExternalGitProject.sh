@@ -20,7 +20,7 @@ for required in repo_user PAT project_name; do
 done
 
 if [ "$external_git_enabled" != "true" ]; then
-  jq -n '{enabled: false, gitAccountAlias: "", physicalRepository: "", apiRepositoryPath: "", branch: "dev"}'
+  jq -n '{enabled: false, projectExists: false, gitAccountAlias: "", physicalRepository: "", apiRepositoryPath: "", branch: "dev"}'
   exit 0
 fi
 
@@ -57,8 +57,9 @@ else
 fi
 
 jq -n \
+  --argjson projectExists "$([ -n "$project_uid" ] && echo true || echo false)" \
   --arg alias "$external_git_account_alias" \
   --arg physicalRepository "$physical_repository" \
   --arg apiRepositoryPath "$api_repository_path" \
   --arg branch "$external_git_branch" \
-  '{enabled: true, gitAccountAlias: $alias, physicalRepository: $physicalRepository, apiRepositoryPath: $apiRepositoryPath, branch: $branch}'
+  '{enabled: true, projectExists: $projectExists, gitAccountAlias: $alias, physicalRepository: $physicalRepository, apiRepositoryPath: $apiRepositoryPath, branch: $branch}'

@@ -14,6 +14,8 @@ external_git_repository="${7:-}"
 external_git_api_repository_path="${8:-}"
 external_git_branch="${9:-dev}"
 external_git_account_alias="${10:-}"
+project_existed="${11:-false}"
+repo_existed="${12:-false}"
 debug="${@: -1}"
 
 for required in repo_name project_id home_dir dev_user feature_branch; do
@@ -37,7 +39,9 @@ PROJECT_ID="$project_id" PROJECT_NAME="$repo_name" yq -i '
   .project."project-name" = strenv(PROJECT_NAME)
 ' "$config_file"
 
-if [ "$external_git_enabled" = "true" ]; then
+existing_external_git=$(yq '.project."external-git".enabled // false' "$config_file")
+
+if [ "$external_git_enabled" = "true" ] && { [ "$project_existed" != "true" ] || { [ "$repo_existed" = "true" ] && [ "$existing_external_git" = "true" ]; }; }; then
   EXTERNAL_GIT_REPOSITORY="$external_git_repository" \
   EXTERNAL_GIT_API_REPOSITORY_PATH="$external_git_api_repository_path" \
   EXTERNAL_GIT_BRANCH="$external_git_branch" \
@@ -50,6 +54,16 @@ if [ "$external_git_enabled" = "true" ]; then
     .project."external-git"."account-alias" = strenv(EXTERNAL_GIT_ACCOUNT_ALIAS) |
     del(.project.dada)
   ' "$config_file"
+elif [ "$external_git_enabled" = "true" ]; then
+  yq -i '
+    .project."external-git".enabled = false |
+    del(.project."external-git".repository,
+        .project."external-git"."api-repository-path",
+        .project."external-git".branch,
+        .project."external-git"."account-alias",
+        .project.dada)
+  ' "$config_file"
+  echo "Project already existed without trusted external Git metadata; conversion was not performed." >&2
 fi
 
 cd "$repo_dir"
