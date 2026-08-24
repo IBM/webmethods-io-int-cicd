@@ -14,6 +14,8 @@ production_branch="$6"
 export_adapter="$7"
 debug="$8"
 shift 8
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+snapshot_comparator="${script_dir}/compareRecoverySnapshot.py"
 
 for required in repo_name home_dir dev_user build_number recovery_branch \
   production_branch export_adapter; do
@@ -21,6 +23,7 @@ for required in repo_name home_dir dev_user build_number recovery_branch \
 done
 
 [ ! -x "$export_adapter" ] && echo "Recovery export adapter is not executable: ${export_adapter}" >&2 && exit 1
+[ ! -f "$snapshot_comparator" ] && echo "Recovery snapshot comparator was not found: ${snapshot_comparator}" >&2 && exit 1
 
 repo_dir="${home_dir%/}/${repo_name}"
 if [ ! -d "$repo_dir/.git" ]; then
@@ -85,9 +88,19 @@ if ! git push origin "HEAD:refs/heads/${recovery_branch}"; then
   exit 1
 fi
 
-if git diff --quiet "$production_ref" HEAD --; then
+comparison_output="$(mktemp)"
+trap 'rm -f "$comparison_output"' EXIT
+comparison_status=0
+python3 "$snapshot_comparator" "$production_ref" HEAD >"$comparison_output" || comparison_status=$?
+if [ "$comparison_status" -eq 0 ]; then
   echo "Live development content matches production. Recovery preflight succeeded."
   exit 0
+fi
+
+if [ "$comparison_status" -ne 1 ]; then
+  echo "Recovery snapshot comparison failed unexpectedly (exit code ${comparison_status})." >&2
+  echo "No project content will be imported." >&2
+  exit "$comparison_status"
 fi
 
 echo "Initialization stopped: the live development project contains content that is not in production." >&2
@@ -95,6 +108,6 @@ echo "The recovery snapshot is preserved in branch '${recovery_branch}'." >&2
 echo "No feature branch was created and no project content was imported." >&2
 echo >&2
 echo "Files differing between production and the recovery snapshot:" >&2
-git diff --name-status "$production_ref" HEAD -- >&2 || true
+cat "$comparison_output" >&2
 
 exit 1
