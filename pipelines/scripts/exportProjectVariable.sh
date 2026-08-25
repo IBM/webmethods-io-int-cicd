@@ -108,7 +108,6 @@ function exportProjectVariableList() {
       echod "Exporting project variable: $pv"
       exportProjectVariable "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$pv" "$envTypes" "$source_type" "$debug"
     done
-	fi
     else
         exportProjectVariable "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$envTypes" "$source_type" "$debug"
     fi 
