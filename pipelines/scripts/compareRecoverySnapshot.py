@@ -15,6 +15,10 @@ GENERATED_EXPORT_ID = re.compile(rb"(?:pkg|fld)_[0-9a-fA-F]{32}_exported")
 MANIFEST_TIME = re.compile(
     rb'(<value name="(?:time|created_date)">)[^<]*(</value>)'
 )
+NODE_EXPORT_TIME = re.compile(
+    rb'<(?:value|number)\s+name="(createdDate|lastModifiedDate)"'
+    rb'(?:\s+type="[^"]*")?>[^<]*</(?:value|number)>'
+)
 
 
 def git(*args: str) -> bytes:
@@ -66,6 +70,13 @@ def normalize_archive_content(path: str, content: bytes) -> bytes:
     normalized = GENERATED_EXPORT_ID.sub(b"generated_export_package", content)
     if path.lower().endswith(("manifest.rel", "manifest.v3")):
         normalized = MANIFEST_TIME.sub(rb"\1generated-export-time\2", normalized)
+    if path.lower().endswith("node.ndf"):
+        # FlowService exports regenerate these audit timestamps. The API may
+        # also serialize lastModifiedDate as either <value> or <number>, even
+        # when the service implementation itself has not changed.
+        normalized = NODE_EXPORT_TIME.sub(
+            rb'<value name="\1">generated-export-time</value>', normalized
+        )
     return normalized
 
 
