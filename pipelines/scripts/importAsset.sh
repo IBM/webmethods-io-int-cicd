@@ -72,15 +72,15 @@ function echod() {
   fi
 }
 function importAsset() {
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  includeAllReferenceData=$9
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local includeAllReferenceData=$9
 
   # Normalize NA/empty when doing full project sync
   if [ "$synchProject" = "true" ]; then
@@ -89,12 +89,6 @@ function importAsset() {
     fi
     if [ "$assetType" = "NA" ] || [ "$assetType" = "na" ] || [ "$assetType" = "Na" ] || [ "$assetType" = "nA" ]; then
       assetType=""
-    fi
-    if [ "$assetIDList" = "NA" ] || [ "$assetIDList" = "na" ] || [ "$assetIDList" = "Na" ] || [ "$assetIDList" = "nA" ]; then
-      assetIDList=""
-    fi
-    if [ "$assetTypeList" = "NA" ] || [ "$assetTypeList" = "na" ] || [ "$assetTypeList" = "Na" ] || [ "$assetTypeList" = "nA" ]; then
-      assetTypeList=""
     fi
   fi
 
@@ -118,65 +112,65 @@ function importAsset() {
         fi
         echod "ProjectID:" ${projectID}
         cd ./assets/projectConfigs/referenceData/
-        importSingleRefData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type} ${projectID}
+        importSingleRefData "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" "$projectID" || return $?
     fi
   else
     if [[ $assetType = rest_api* ]]; then
         IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/project-import
-        cd ${HOME_DIR}/${repoName}/assets/rest_api
+        cd "${HOME_DIR}/${repoName}/assets/rest_api" || return 1
         echod "REST API Import:" ${IMPORT_URL}
         echod $(ls -ltr)
     else
       if [[ $assetType = workflow* ]]; then
           IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/workflow-import
-          cd ${HOME_DIR}/${repoName}/assets/workflows
+          cd "${HOME_DIR}/${repoName}/assets/workflows" || return 1
           echod "Workflow Import:" ${IMPORT_URL}
           echod $(ls -ltr)
       else
         if [[ $assetType = project_parameter* ]]; then
           echod "Project Parameter Import:" ${assetID}
-          importSingleProjectParameters ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type} ${projectID}
+          importSingleProjectParameters "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" "$projectID" || return $?
           return
         else
           if [[ $assetType = flowservice* ]]; then
             IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/flow-import
-            cd ${HOME_DIR}/${repoName}/assets/flowservices
+            cd "${HOME_DIR}/${repoName}/assets/flowservices" || return 1
             echod "Flowservice Import:" ${IMPORT_URL}
             echod $(ls -ltr)
           else
             if [[ $assetType = dafservice* ]]; then
               IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/projects/${repoName}/flow-import
-              cd ${HOME_DIR}/${repoName}/assets/dafservices
+              cd "${HOME_DIR}/${repoName}/assets/dafservices" || return 1
               echod "DAFservice Import:" ${IMPORT_URL}
               echod $(ls -ltr)
 			  else
 				if [[ $assetType = soap_api* ]]; then
 				IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/project-import
-				cd ${HOME_DIR}/${repoName}/assets/soap_api
+				cd "${HOME_DIR}/${repoName}/assets/soap_api" || return 1
 				echod "SOAP API Import: "${IMPORT_URL}
 				echod $(ls -ltr)
 				else
 				  if [[ $assetType = Scheduler* ]]; then
 				  echod " Scheduler Import: "${assetType}
-				  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+				  "${SCRIPT_DIR}/importSchedulersList.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug" || return $?
 				  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/schedulers
 				  echod $(ls -ltr)
 				  else
 				    if [[ $assetType = project_configuration* ]]; then
 				    echod " project configuration Import: "${assetType}
-				    ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR"
+				    "${SCRIPT_DIR}/importProjectConfiguration.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" || return $?
 				    cd ${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectConfiguration
 				    echod $(ls -ltr)
 					else
 					  if [[ $assetType = project_variable* ]]; then
 					  echod " project variable Import: "${assetType}
-					  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
+					  "${SCRIPT_DIR}/importProjectVariables.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug" || return $?
 					  cd ${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectVariable
 					  echod $(ls -ltr)
                       else
                         if [[ $assetType = certificate* ]]; then
                         echod " project variable Import: "${assetType}
-                        ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug"
+                        "${SCRIPT_DIR}/importCertificate.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$debug" || return $?
                         cd ${HOME_DIR}/${repoName}/assets/projectConfigs/certificates
                         echod $(ls -ltr)
                       fi
@@ -214,12 +208,14 @@ function importAsset() {
           if [ "$name" == "$success" ];   then
             echod "Import Succeeded:" ${importedName}
           else
-            echod "Import Failed:" ${importedName}
+            echo "Import Failed: ${importedName}" >&2
+            return 1
           fi
         else
           name=$(echo "$importedName" | jq '.output.name // empty')
           if [ -z "$name" ];   then
-            echod "Import failed:" ${importedName}
+            echo "Import failed: ${importedName}" >&2
+            return 1
           else
             echod "Import Succeeded:" ${importedName}
           fi
@@ -231,28 +227,28 @@ function importAsset() {
     if [ ${synchProject} != true ]; then
       if [[ $assetType = flowservice* ]]; then
         if [ ${includeAllReferenceData} == true ]; then
-          importRefData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
+          importRefData "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" || return $?
       fi
       fi
     fi
   fi
- cd ${HOME_DIR}/${repoName}
+ cd "${HOME_DIR}/${repoName}" || return 1
 }
 
 function importSingleProjectParameters(){
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
-  projectID=${10}
-  d=$assetID
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
+  local projectID=${10}
+  local d=$assetID
 
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
   #Importing Reference Data
   DIR="./assets/projectConfigs/parameters/"
   if [ -d "$DIR" ]; then
@@ -348,19 +344,19 @@ function importSingleProjectParameters(){
 
 
 function importSingleRefData(){
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
-  projectID=${10}
-  d=$assetID
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
+  local projectID=${10}
+  local d=$assetID
 
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
   #Importing Reference Data
   DIR="./assets/projectConfigs/referenceData/"
   if [ -d "$DIR" ]; then
@@ -411,22 +407,22 @@ function importSingleRefData(){
       cd -
     fi
   fi
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
 
 }
 
 function importRefData(){ 
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
   
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
   ls -ltr
 
   #Importing Reference Data
@@ -446,23 +442,23 @@ function importRefData(){
        echod "ProjectID:" ${projectID}
       cd ./assets/projectConfigs/referenceData/
       for d in * ; do
-        importSingleRefData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${d} ${assetType} ${HOME_DIR} ${synchProject} ${source_type} ${projectID}
+        importSingleRefData "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$d" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" "$projectID" || return $?
         done
   fi
- cd ${HOME_DIR}/${repoName}
+ cd "${HOME_DIR}/${repoName}" || return 1
 
 }
 
 function importConnections(){ 
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
   
   cd "${HOME_DIR}/${repoName}" || exit 1
   ls -ltr
@@ -498,18 +494,18 @@ function importConnections(){
 }
 
 function importSingleConnection(){
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
-  folder=$assetID
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
+  local folder=$assetID
 
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
   #Importing Reference Data
   folder="./assets/connections/$folder"
   account_name="$(basename "$folder")"
@@ -559,20 +555,20 @@ function importSingleConnection(){
     echod "⚠️  No file found for env '$source_type' in account '$account_name'"
   fi
   cd - >/dev/null
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
 }
 
 function projectParameters(){
  # Importing Project Parameters
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  source_type=$9
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local source_type=$9
   echod $(pwd)
   echod $(ls -ltr)
 
@@ -581,26 +577,25 @@ function projectParameters(){
       echo "Project Parameters needs to be synched"
       cd ./assets/projectConfigs/parameters/
       for d in * ; do
-        importSingleProjectParameters ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${d} ${assetType} ${HOME_DIR} ${synchProject} ${source_type} ${projectID}
+        importSingleProjectParameters "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$d" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" "$projectID" || return $?
       done
   else 
       echo "No Project Parameters to import."
   fi
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
 
 }
 
 function splitAndImportAssets() {
-
-  LOCAL_DEV_URL=$1
-  admin_user=$2
-  admin_password=$3
-  repoName=$4
-  assetID=$5
-  assetType=$6
-  HOME_DIR=$7
-  synchProject=$8
-  includeAllReferenceData=$9
+  local LOCAL_DEV_URL=$1
+  local admin_user=$2
+  local admin_password=$3
+  local repoName=$4
+  local assetID=$5
+  local assetType=$6
+  local HOME_DIR=$7
+  local synchProject=$8
+  local includeAllReferenceData=$9
   local assetNameList="$5"
   local assetTypeList="$6"
 
@@ -652,13 +647,13 @@ function splitAndImportAssets() {
     for (( i=0; i<$lenNames; i++ )); do
       if [ "${assetTypes[$i]}" == "$orderType" ]; then
         echo "Processing ${assetNames[$i]} of type ${assetTypes[$i]}"
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetNames[$i]} ${assetTypes[$i]} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "${assetNames[$i]}" "${assetTypes[$i]}" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || return $?
       fi
     done
   done
 }
 
-cd ${HOME_DIR}/${repoName}
+cd "${HOME_DIR}/${repoName}" || exit 1
 
 
 if [ ${synchProject} == true ]; then
@@ -674,7 +669,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$base_name" "$parent_name" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
     done
   else
     echod "No rest apis to import"
@@ -690,7 +685,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$base_name" "$parent_name" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
     done
   else
     echod "No soap_api to import"
@@ -699,7 +694,7 @@ if [ ${synchProject} == true ]; then
   # Connections import (after APIs create project)
   assetID=${assetIDList}
   assetType=Connection
-  importConnections ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
+  importConnections "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" || exit $?
 
   # Workflows import
   shopt -s nullglob dotglob
@@ -711,7 +706,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$base_name" "$parent_name" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
     done
   else
     echod "No workflows to import"
@@ -727,7 +722,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$base_name" "$parent_name" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
     done
   else
     echod "No flowservices to import"
@@ -743,7 +738,7 @@ if [ ${synchProject} == true ]; then
         base_name=${base_name%.*}
         echod $base_name${filename%.*}
         echod $parent_name
-        importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${base_name} ${parent_name} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+        importAsset "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$base_name" "$parent_name" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
     done
   else
     echod "No DAFservices to import"
@@ -753,35 +748,35 @@ if [ ${synchProject} == true ]; then
 
   assetID=${assetIDList}
   assetType=referenceData
-  importRefData ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
+  importRefData "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" || exit $?
   assetType=project_parameter
-  projectParameters ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${source_type}
+  projectParameters "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetID" "$assetType" "$HOME_DIR" "$synchProject" "$source_type" || exit $?
   
   # Scheduler import
   assetID=${assetIDList}
   assetType=Scheduler
-  ../self/pipelines/scripts/importSchedulersList.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+  "${SCRIPT_DIR}/importSchedulersList.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug" || exit $?
   
   # Project Configuration import
   assetID=${assetIDList}
   assetType=project_configuration
-  ../self/pipelines/scripts/importProjectConfiguration.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+  "${SCRIPT_DIR}/importProjectConfiguration.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug" || exit $?
   
   # Project variables import
   assetID=${assetIDList}
   assetType=project_variable
-  ../self/pipelines/scripts/importProjectVariables.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+  "${SCRIPT_DIR}/importProjectVariables.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug" || exit $?
 
   # Project variables import
   assetID=${assetIDList}
   assetType=certificate
-  ../self/pipelines/scripts/importCertificate.sh "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug"
+  "${SCRIPT_DIR}/importCertificate.sh" "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$HOME_DIR" "$assetID" "$debug" || exit $?
 
 else
   #importAsset ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} ${assetID} ${assetType} ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
   # Clean it (remove spaces around commas)
   assetIDList=$(echo "$assetIDList" | sed 's/ *, */,/g')
   assetTypeList=$(echo "$assetTypeList" | sed 's/ *, */,/g')
-  splitAndImportAssets ${LOCAL_DEV_URL} ${admin_user} ${admin_password} ${repoName} "$assetIDList" "$assetTypeList" ${HOME_DIR} ${synchProject} ${includeAllReferenceData}
+  splitAndImportAssets "$LOCAL_DEV_URL" "$admin_user" "$admin_password" "$repoName" "$assetIDList" "$assetTypeList" "$HOME_DIR" "$synchProject" "$includeAllReferenceData" || exit $?
 fi 
 set +x
