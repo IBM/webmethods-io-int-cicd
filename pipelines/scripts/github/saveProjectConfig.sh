@@ -39,9 +39,19 @@ PROJECT_ID="$project_id" PROJECT_NAME="$repo_name" yq -i '
   .project."project-name" = strenv(PROJECT_NAME)
 ' "$config_file"
 
-existing_external_git=$(yq '.project."external-git".enabled // false' "$config_file")
+has_external_git_flag=$(yq '.project."external-git" | has("enabled")' "$config_file")
+existing_external_git=$(yq '.project."external-git".enabled' "$config_file")
+existing_legacy_dada=$(yq '.project.dada.enabled // false' "$config_file")
+trusted_external_git=false
 
-if [ "$external_git_enabled" = "true" ] && { [ "$project_existed" != "true" ] || { [ "$repo_existed" = "true" ] && [ "$existing_external_git" = "true" ]; }; }; then
+# Repositories initialized before the external-git naming change store the
+# same trusted association under project.dada. Honour that metadata only when
+# the replacement external-git flag is absent; an explicit false must win.
+if [ "$existing_external_git" = "true" ] || { [ "$has_external_git_flag" != "true" ] && [ "$existing_legacy_dada" = "true" ]; }; then
+  trusted_external_git=true
+fi
+
+if [ "$external_git_enabled" = "true" ] && { [ "$project_existed" != "true" ] || { [ "$repo_existed" = "true" ] && [ "$trusted_external_git" = "true" ]; }; }; then
   EXTERNAL_GIT_REPOSITORY="$external_git_repository" \
   EXTERNAL_GIT_API_REPOSITORY_PATH="$external_git_api_repository_path" \
   EXTERNAL_GIT_BRANCH="$external_git_branch" \

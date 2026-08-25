@@ -37,13 +37,13 @@ fi
 # Debug mode
 if [ "$debug" == "trace" ]; then
     echo "......Running in Trace mode ......" >&2
-    set -x
+    echo "Shell command tracing is suppressed because this script handles credentials." >&2
 elif [ "$debug" == "debug" ]; then
     echo "......Running in Debug mode ......" >&2
 fi
 
 echo "Starting importProjectConfiguration.sh"
-echo "Arguments: $@"
+echo "Arguments received for project '${repoName}'."
 function echod() {
   if [ "${debug:-}" == "debug" ] || [ "${debug:-}" == "trace" ]; then
     echo "$@" >&2
@@ -73,7 +73,7 @@ function importProjectConfiguration() {
     
     file_dir="${HOME_DIR}/${repoName}/assets/projectConfigs/ProjectConfiguration"
     
-    if [ -d "$DIR" ]; then
+    if [ -d "$file_dir" ] && [ -f "$file_dir/ProjectConfiguration_List_Full.json" ]; then
       # Timestamp
       generated_on=$(date +%s)
 
