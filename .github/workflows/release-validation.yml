@@ -1,0 +1,92 @@
+name: Release validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-validation:
+    name: Offline release validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Run offline validation
+        id: offline
+        continue-on-error: true
+        run: ./tests/run.sh offline
+
+      - name: Add validation summary
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report = Path("tests/output/reports/offline-summary.json")
+          destination = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          if not report.exists():
+              destination.write_text(
+                  "## Offline release validation\n\n"
+                  "**FAILED** — the test runner did not generate its JSON report.\n",
+                  encoding="utf-8",
+              )
+              raise SystemExit(0)
+
+          data = json.loads(report.read_text(encoding="utf-8"))
+          counts = data["counts"]
+          result = "PASSED" if data["successful"] else "FAILED"
+          lines = [
+              "## Offline release validation",
+              "",
+              f"**{result}** in {data['durationSeconds']:.3f}s",
+              "",
+              "| Passed | Failed | Errors | Skipped |",
+              "|---:|---:|---:|---:|",
+              f"| {counts['passed']} | {counts['failed']} | {counts['error']} | {counts['skipped']} |",
+          ]
+          failures = [test for test in data["tests"] if test["status"] in {"failed", "error"}]
+          if failures:
+              lines.extend(["", "### Failures", ""])
+              lines.extend(f"- `{test['id']}`" for test in failures)
+          lines.extend(
+              [
+                  "",
+                  "Download the `offline-release-validation` artifact for the HTML, JSON, JUnit, and raw log reports.",
+                  "",
+              ]
+          )
+          destination.write_text("\n".join(lines), encoding="utf-8")
+          PY
+
+      - name: Publish validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-release-validation-${{ github.run_number }}
+          path: |
+            tests/output/reports/offline-report.html
+            tests/output/reports/offline-summary.json
+            tests/output/junit/offline.xml
+            tests/output/logs/offline.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce release gate
+        if: always() && steps.offline.outcome != 'success'
+        run: |
+          echo "Offline release validation failed. Tag/release promotion is blocked."
+          exit 1
