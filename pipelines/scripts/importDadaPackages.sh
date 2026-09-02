@@ -9,7 +9,14 @@ admin_user="$2"
 admin_password="$3"
 project_name="$4"
 automation_repo_dir="$5"
-debug="${@: -1}"
+target_environment="${6:-}"
+debug="${7:-}"
+
+# Backward compatibility: the original signature used argument 6 for debug.
+if [[ "$target_environment" == "debug" || "$target_environment" == "trace" ]]; then
+  debug="$target_environment"
+  target_environment=""
+fi
 
 if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
   debug=""
@@ -31,7 +38,10 @@ if [ ! -d "$scaffolding_dir" ]; then
   exit 0
 fi
 
-mapfile -t scaffolding_files < <(find "$scaffolding_dir" -maxdepth 1 -type f \
+scaffolding_files=()
+while IFS= read -r scaffolding_path; do
+  scaffolding_files+=("$scaffolding_path")
+done < <(find "$scaffolding_dir" -maxdepth 1 -type f \
   -name '*.yml' ! -name 'projectmapping.yml' -print)
 
 if [ "${#scaffolding_files[@]}" -eq 0 ]; then
@@ -52,7 +62,8 @@ if ! yq e '.' "$scaffolding_file" >/dev/null 2>&1; then
 fi
 
 packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
-  --arg projectPackage "$project_package_name" '
+  --arg projectPackage "$project_package_name" \
+  --arg targetEnvironment "$target_environment" '
     [ .[]
       | select(.name != $projectPackage)
       | {
@@ -60,7 +71,8 @@ packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
           gitUrl: .gitUrl,
           gitServerName: .gitServerName,
           gitUserName: .gitUsername,
-          gitBranch: .gitBranch
+          gitBranch: (if $targetEnvironment != "" then $targetEnvironment else .gitBranch end),
+          scaffoldingBranch: .gitBranch
         }
     ]
   ')
@@ -76,7 +88,8 @@ if ! jq -e 'all(.[];
   (.gitUrl | type == "string" and length > 0) and
   (.gitServerName | type == "string" and length > 0) and
   (.gitUserName | type == "string" and length > 0) and
-  (.gitBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
+  (.gitBranch | type == "string" and length > 0) and
+  (.scaffoldingBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
   echo "One or more external package entries have incomplete Git details." >&2
   exit 1
 fi
@@ -89,15 +102,17 @@ echod "Importing ${package_count} external package(s) from destination-branch sc
 while IFS= read -r package_payload; do
   package_name=$(jq -r '.packageName' <<< "$package_payload")
   package_branch=$(jq -r '.gitBranch' <<< "$package_payload")
+  scaffolding_branch=$(jq -r '.scaffoldingBranch' <<< "$package_payload")
+  request_payload=$(jq -c 'del(.scaffoldingBranch)' <<< "$package_payload")
 
-  echod "Importing dependent package '${package_name}' from branch '${package_branch}'."
+  echod "Importing dependent package '${package_name}': scaffolding branch '${scaffolding_branch}', target branch '${package_branch}'."
   http_status=$(curl --silent --show-error --location \
     --output "$response_file" --write-out '%{http_code}' \
     --request POST "$import_url" \
     --header 'Content-Type: application/json' \
     --header 'Accept: application/json' \
     --user "${admin_user}:${admin_password}" \
-    --data-raw "$package_payload") || {
+    --data-raw "$request_payload") || {
       echo "External package '${package_name}' import request failed." >&2
       exit 1
     }
