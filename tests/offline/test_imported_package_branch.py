@@ -129,6 +129,7 @@ packages:
         config_dir = self.workspace / "configs/env"
         config_dir.mkdir(parents=True)
         (config_dir / "dev.yml").write_text("tenant:\n  type: dev\n", encoding="utf-8")
+        (config_dir / "play.yml").write_text("tenant:\n  type: play\n", encoding="utf-8")
         (config_dir / "qa.yml").write_text("tenant:\n  type: qa\n", encoding="utf-8")
         mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
         mapping.write_text(
@@ -155,3 +156,4 @@ packages:
         branches = policy["packages"]["SupportPkg"]["branches"]
         self.assertEqual("custom-development", branches["dev"])
         self.assertEqual("qa", branches["qa"])
+        self.assertEqual(["play", "dev", "qa"], list(branches))

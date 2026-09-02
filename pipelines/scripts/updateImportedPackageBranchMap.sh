@@ -42,7 +42,20 @@ if [ "${#environment_values[@]}" -eq 0 ]; then
   exit 1
 fi
 
-environments_json=$(printf '%s\n' "${environment_values[@]}" | jq -Rsc 'split("\n") | map(select(length > 0)) | unique')
+environments_json=$(printf '%s\n' "${environment_values[@]}" | jq -Rsc '
+  split("\n") |
+  map(select(length > 0)) |
+  unique |
+  sort_by(
+    if . == "play" then 0
+    elif . == "dev" or . == "development" then 1
+    elif . == "qa" then 2
+    elif . == "preprod" then 3
+    elif . == "prod" or . == "production" then 4
+    else 5
+    end
+  )
+')
 mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 mkdir -p "$(dirname "$mapping_file")"
 
@@ -64,8 +77,11 @@ updated_json=$(jq -c \
     reduce $packages[] as $package (.;
       .packages[$package] = (.packages[$package] // {}) |
       .packages[$package].branches = (.packages[$package].branches // {}) |
-      reduce $environments[] as $environment (.;
-        .packages[$package].branches[$environment] //= $environment
+      .packages[$package].branches as $existingBranches |
+      .packages[$package].branches = (
+        (reduce $environments[] as $environment ({};
+          .[$environment] = ($existingBranches[$environment] // $environment)
+        )) + $existingBranches
       )
     )
   ' <<< "$existing_json") || exit 1
