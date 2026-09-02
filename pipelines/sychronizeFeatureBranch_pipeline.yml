@@ -115,6 +115,7 @@ steps:
       "${HOME_DIR}/$(repoName)" \
       "$(repo_user)" \
       "$(PAT)" \
+      "${config_dir}" \
       debug
   displayName: 'Export Asset'
   #failOnStderr: true

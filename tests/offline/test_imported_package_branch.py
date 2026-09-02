@@ -82,3 +82,76 @@ printf '201'
         self.assertEqual(0, result.returncode, result.stderr + result.stdout)
         self.assertEqual("dev", payload["gitBranch"])
         self.assertIn("scaffolding branch 'dev', target branch 'dev'", result.stderr)
+
+    def test_explicit_mapping_overrides_environment_name(self):
+        mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
+        mapping.write_text(
+            '''version: "1.0"
+packages:
+  SupportPkg:
+    branches:
+      qa: release/qa
+''',
+            encoding="utf-8",
+        )
+        result, payload = self.invoke("qa", "debug")
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        self.assertEqual("release/qa", payload["gitBranch"])
+
+    def test_present_mapping_fails_when_target_environment_is_missing(self):
+        mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
+        mapping.write_text(
+            '''version: "1.0"
+packages:
+  SupportPkg:
+    branches:
+      dev: dev
+''',
+            encoding="utf-8",
+        )
+        capture = self.workspace / "captured-request.json"
+        result = run(
+            [
+                "bash", SCRIPTS / "importDadaPackages.sh",
+                "https://tenant.example", "admin", "SECRET", "sample",
+                self.workspace / "sample", "qa", "debug",
+            ],
+            env={
+                "PATH": f"{self.mock_bin}:{os.environ['PATH']}",
+                "WMIO_CURL_CAPTURE": str(capture),
+            },
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(capture.exists())
+        self.assertIn("defines a branch for environment 'qa'", result.stderr)
+
+    def test_mapping_generator_preserves_override_and_adds_missing_environments(self):
+        config_dir = self.workspace / "configs/env"
+        config_dir.mkdir(parents=True)
+        (config_dir / "dev.yml").write_text("tenant:\n  type: dev\n", encoding="utf-8")
+        (config_dir / "qa.yml").write_text("tenant:\n  type: qa\n", encoding="utf-8")
+        mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
+        mapping.write_text(
+            '''version: "1.0"
+packages:
+  SupportPkg:
+    branches:
+      dev: custom-development
+''',
+            encoding="utf-8",
+        )
+        result = run(
+            [
+                "bash", SCRIPTS / "updateImportedPackageBranchMap.sh",
+                self.workspace / "sample",
+                self.workspace / "sample/assets/dada/config/scaffolding/SampleProject.yml",
+                config_dir,
+                "debug",
+            ],
+        )
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        generated = run(["yq", "-o=json", ".", mapping])
+        policy = json.loads(generated.stdout)
+        branches = policy["packages"]["SupportPkg"]["branches"]
+        self.assertEqual("custom-development", branches["dev"])
+        self.assertEqual("qa", branches["qa"])

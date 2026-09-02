@@ -55,15 +55,27 @@ fi
 
 scaffolding_file="${scaffolding_files[0]}"
 project_package_name="$(basename "$scaffolding_file" .yml)"
+branch_mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 
 if ! yq e '.' "$scaffolding_file" >/dev/null 2>&1; then
   echo "DADA scaffolding is not valid YAML: ${scaffolding_file}" >&2
   exit 1
 fi
 
+branch_mapping_json='{}'
+if [ -f "$branch_mapping_file" ]; then
+  if ! yq e '.' "$branch_mapping_file" >/dev/null 2>&1; then
+    echo "Imported-package branch mapping is not valid YAML: ${branch_mapping_file}" >&2
+    exit 1
+  fi
+  branch_mapping_json=$(yq -o=json e '.' "$branch_mapping_file")
+fi
+
 packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
   --arg projectPackage "$project_package_name" \
-  --arg targetEnvironment "$target_environment" '
+  --arg targetEnvironment "$target_environment" \
+  --argjson branchMapping "$branch_mapping_json" \
+  --arg mappingPresent "$([ -f "$branch_mapping_file" ] && echo true || echo false)" '
     [ .[]
       | select(.name != $projectPackage)
       | {
@@ -71,7 +83,13 @@ packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
           gitUrl: .gitUrl,
           gitServerName: .gitServerName,
           gitUserName: .gitUsername,
-          gitBranch: (if $targetEnvironment != "" then $targetEnvironment else .gitBranch end),
+          gitBranch: (
+            if $targetEnvironment == "" then .gitBranch
+            elif $mappingPresent == "true" then
+              ($branchMapping.packages[.name].branches[$targetEnvironment] // "")
+            else $targetEnvironment
+            end
+          ),
           scaffoldingBranch: .gitBranch
         }
     ]
@@ -91,6 +109,9 @@ if ! jq -e 'all(.[];
   (.gitBranch | type == "string" and length > 0) and
   (.scaffoldingBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
   echo "One or more external package entries have incomplete Git details." >&2
+  if [ -f "$branch_mapping_file" ] && [ -n "$target_environment" ]; then
+    echo "Ensure every imported package defines a branch for environment '${target_environment}' in ${branch_mapping_file}." >&2
+  fi
   exit 1
 fi
 

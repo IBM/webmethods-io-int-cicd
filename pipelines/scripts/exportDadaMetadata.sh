@@ -11,7 +11,14 @@ project_name="$4"
 automation_repo_dir="$5"
 repo_user="$6"
 PAT="$7"
-debug="${@: -1}"
+environment_config_dir="${8:-}"
+debug="${9:-}"
+
+# Backward compatibility: the original signature used argument 8 for debug.
+if [[ "$environment_config_dir" == "debug" || "$environment_config_dir" == "trace" ]]; then
+  debug="$environment_config_dir"
+  environment_config_dir=""
+fi
 
 if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
   debug=""
@@ -98,6 +105,14 @@ fi
 mkdir -p "$destination"
 cp "$source_scaffolding" "$destination/"
 echod "Copied DADA scaffolding without modification."
+
+if [ -n "$environment_config_dir" ]; then
+  bash "${script_dir}/updateImportedPackageBranchMap.sh" \
+    "$automation_repo_dir" "${destination}/$(basename "$source_scaffolding")" \
+    "$environment_config_dir" "$debug" || exit $?
+else
+  echod "No environment configuration directory supplied; branch mapping was not generated."
+fi
 
 if [ -f "$source_mapping" ]; then
   cp "$source_mapping" "$destination/"
