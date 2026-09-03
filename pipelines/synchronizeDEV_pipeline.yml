@@ -21,6 +21,8 @@ variables:
 - group: azure_group
 - name: repoPath
   value: $(gitOwner)/$(repoName)
+- name: projectHasAPIs
+  value: 'false'
   
 
 
@@ -111,22 +113,27 @@ steps:
       echo "Captured Project ID: [$existingProject_id]"
 
       echo "Check and create Project ..."
-      project_id=$(../self/pipelines/scripts/createProject.sh \
+      if ! project_id=$(../self/pipelines/scripts/createProject.sh \
                 "${LOCAL_DEV_URL}" \
                 "$(admin_user)" \
-                "$(dev_admin_password)" \
+                "$TENANT_ADMIN_PASSWORD" \
                 "$(repoName)" \
                 "$existingProject_id" \
-                "debug" 2> >(tee >&2))
+                "debug" 2> >(tee >&2)); then
+        echo "##vso[task.logissue type=error;]Project creation failed. Package and asset import have been stopped."
+        exit 1
+      fi
     fi
 
     echo "Importing external packages from destination-branch scaffolding ..."
     ../self/pipelines/scripts/importDadaPackages.sh \
-      "${LOCAL_DEV_URL}" "$(admin_user)" "$(dev_admin_password)" "$(repoName)" \
+      "${LOCAL_DEV_URL}" "$(admin_user)" "$TENANT_ADMIN_PASSWORD" "$(repoName)" \
       "${HOME_DIR}/$(repoName)" "$(source_type)" debug || exit $?
 
     echo "Importing asset ..."
-    ../self/pipelines/scripts/importAsset.sh "${LOCAL_DEV_URL}" "$(admin_user)" "$(dev_admin_password)" "$(repoName)" "$(assetIDList)" "$(assetTypeList)" "${HOME_DIR}" "$(synchProject)" "$(source_type)" "$(includeAllReferenceData)" "$(provider)" "$(AZURE_VAULT_NAME)" "$(AZURE_RESOURCE_GROUP)" "$(AZURE_LOCATION)" "$(AZURE_TENANT_ID)" "$(AZURE_CLIENT_ID)" "$(AZURE_CLIENT_SECRET)" "$(AZURE_ACCESS_OBJECT_ID)" "debug"
+    ../self/pipelines/scripts/importAsset.sh "${LOCAL_DEV_URL}" "$(admin_user)" "$TENANT_ADMIN_PASSWORD" "$(repoName)" "$(assetIDList)" "$(assetTypeList)" "${HOME_DIR}" "$(synchProject)" "$(source_type)" "$(includeAllReferenceData)" "$(provider)" "$(AZURE_VAULT_NAME)" "$(AZURE_RESOURCE_GROUP)" "$(AZURE_LOCATION)" "$(AZURE_TENANT_ID)" "$(AZURE_CLIENT_ID)" "$(AZURE_CLIENT_SECRET)" "$(AZURE_ACCESS_OBJECT_ID)" "debug"
+  env:
+    TENANT_ADMIN_PASSWORD: $(dev_admin_password)
   displayName: 'Import Asset'
 
 - script: |
