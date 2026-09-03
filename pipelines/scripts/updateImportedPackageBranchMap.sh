@@ -59,6 +59,14 @@ environments_json=$(printf '%s\n' "${environment_values[@]}" | jq -Rsc '
     end
   )
 ')
+source_environment=$(jq -r '
+  if index("play") then "play"
+  elif index("development") then "development"
+  elif index("dev") then "dev"
+  else .[0] // ""
+  end
+' <<< "$environments_json")
+[ -z "$source_environment" ] && echo "Unable to determine source environment from ${environment_config_dir}." >&2 && exit 1
 mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 mkdir -p "$(dirname "$mapping_file")"
 
@@ -74,7 +82,8 @@ fi
 
 updated_json=$(jq -c \
   --argjson packages "$packages_json" \
-  --argjson environments "$environments_json" '
+  --argjson environments "$environments_json" \
+  --arg sourceEnvironment "$source_environment" '
     .version = (.version // "1.0") |
     .packages = (.packages // {}) |
     reduce $packages[] as $package (.;
@@ -84,12 +93,12 @@ updated_json=$(jq -c \
       .packages[$package.name].branches = (
         (reduce $environments[] as $environment ({};
           .[$environment] = (
-            if $environment == "play" then $package.branch
+            if $environment == $sourceEnvironment then $package.branch
             else ($existingBranches[$environment] // $environment)
             end
           )
         )) + $existingBranches
-        | .play = $package.branch
+        | .[$sourceEnvironment] = $package.branch
       )
     )
   ' <<< "$existing_json") || exit 1
