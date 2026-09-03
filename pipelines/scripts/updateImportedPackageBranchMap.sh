@@ -23,10 +23,13 @@ done
 project_package_name="$(basename "$scaffolding_file" .yml)"
 packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
   --arg projectPackage "$project_package_name" \
-  '[.[] | select(.name != $projectPackage) | .name] | unique')
+  '[.[] | select(.name != $projectPackage) | {name: .name, branch: .gitBranch}]
+   | unique_by(.name)')
 
-if ! jq -e 'type == "array" and all(.[]; type == "string" and length > 0)' <<< "$packages_json" >/dev/null; then
-  echo "Scaffolding contains an invalid imported-package name." >&2
+if ! jq -e 'type == "array" and all(.[];
+  (.name | type == "string" and length > 0) and
+  (.branch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
+  echo "Scaffolding contains an invalid imported-package name or branch." >&2
   exit 1
 fi
 
@@ -75,13 +78,18 @@ updated_json=$(jq -c \
     .version = (.version // "1.0") |
     .packages = (.packages // {}) |
     reduce $packages[] as $package (.;
-      .packages[$package] = (.packages[$package] // {}) |
-      .packages[$package].branches = (.packages[$package].branches // {}) |
-      .packages[$package].branches as $existingBranches |
-      .packages[$package].branches = (
+      .packages[$package.name] = (.packages[$package.name] // {}) |
+      .packages[$package.name].branches = (.packages[$package.name].branches // {}) |
+      .packages[$package.name].branches as $existingBranches |
+      .packages[$package.name].branches = (
         (reduce $environments[] as $environment ({};
-          .[$environment] = ($existingBranches[$environment] // $environment)
+          .[$environment] = (
+            if $environment == "play" then $package.branch
+            else ($existingBranches[$environment] // $environment)
+            end
+          )
         )) + $existingBranches
+        | .play = $package.branch
       )
     )
   ' <<< "$existing_json") || exit 1

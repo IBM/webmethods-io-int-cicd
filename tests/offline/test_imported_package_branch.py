@@ -154,6 +154,35 @@ packages:
         generated = run(["yq", "-o=json", ".", mapping])
         policy = json.loads(generated.stdout)
         branches = policy["packages"]["SupportPkg"]["branches"]
+        self.assertEqual("dev", branches["play"])
         self.assertEqual("custom-development", branches["dev"])
         self.assertEqual("qa", branches["qa"])
         self.assertEqual(["play", "dev", "qa"], list(branches))
+
+    def test_mapping_generator_refreshes_play_from_scaffolding(self):
+        config_dir = self.workspace / "configs/env"
+        config_dir.mkdir(parents=True)
+        (config_dir / "play.yml").write_text("tenant:\n  type: play\n", encoding="utf-8")
+        mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
+        mapping.write_text(
+            '''version: "1.0"
+packages:
+  SupportPkg:
+    branches:
+      play: stale-branch
+''',
+            encoding="utf-8",
+        )
+        result = run(
+            [
+                "bash", SCRIPTS / "updateImportedPackageBranchMap.sh",
+                self.workspace / "sample",
+                self.workspace / "sample/assets/dada/config/scaffolding/SampleProject.yml",
+                config_dir,
+                "debug",
+            ],
+        )
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        generated = run(["yq", "-o=json", ".", mapping])
+        policy = json.loads(generated.stdout)
+        self.assertEqual("dev", policy["packages"]["SupportPkg"]["branches"]["play"])
