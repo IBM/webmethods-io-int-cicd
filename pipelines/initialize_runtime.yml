@@ -59,7 +59,7 @@ steps:
       echo ${LOCAL_DEV_URL}
       HOME_DIR=$(System.DefaultWorkingDirectory)/../
       chmod +x ./self/pipelines/scripts/*.sh
-      ./self/pipelines/scripts/initializeRuntime.sh ${LOCAL_DEV_URL} $(admin_user) $(admin_password) $(aliasName) $(visibility) $(description) debug
+      ./self/pipelines/scripts/initializeRuntime.sh ${LOCAL_DEV_URL} $(admin_user) $(play_admin_password) $(aliasName) $(visibility) $(description) debug
       file="./$(aliasName)_Paired.json"
       echo $file
       fileExists=false
@@ -103,4 +103,3 @@ steps:
     AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
   condition: eq(variables['FileExists'], True)
   displayName: 'Store Runtime Details to Library'
-  

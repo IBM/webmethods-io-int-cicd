@@ -103,7 +103,13 @@ Variable groups store credentials and configuration centrally.
 2. Click **+ Variable group**
 3. **Name**: `webMethodsIO_group`
 4. Add variables:
-   - `admin_password` (Secret) — webMethods.io admin password for Play/Build environment
+   - `play_admin_password` (Secret) — webMethods.io Play/Build tenant password
+   - `dev_admin_password` (Secret) — webMethods.io DEV tenant password
+   - `qa_admin_password` (Secret) — webMethods.io QA tenant password
+   - `prod_admin_password` (Secret) — webMethods.io production tenant password
+
+   Keep every password locked as a secret. The username for each tenant is
+   configured independently in `configs/env/<environment>.yml`.
 
 5. Click **Save**
 

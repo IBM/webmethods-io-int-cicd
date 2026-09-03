@@ -51,20 +51,40 @@ steps:
     pwd
     ls -ltr
     echo "##vso[task.setvariable variable=admin_user]`yq -e ".tenant.admin_username" configs/env/${source}.yml`"
+
+    case "${source}" in
+      play) tenant_password="${PLAY_ADMIN_PASSWORD}" ;;
+      dev) tenant_password="${DEV_ADMIN_PASSWORD}" ;;
+      qa) tenant_password="${QA_ADMIN_PASSWORD}" ;;
+      prod) tenant_password="${PROD_ADMIN_PASSWORD}" ;;
+      *)
+        echo "##vso[task.logissue type=error;]Unsupported test environment '${source}'."
+        exit 1
+        ;;
+    esac
+    if [ -z "${tenant_password}" ]; then
+      echo "##vso[task.logissue type=error;]The admin password for '${source}' is not configured."
+      exit 1
+    fi
+    echo "##vso[task.setvariable variable=tenant_admin_password;issecret=true]${tenant_password}"
     
     echo $(System.DefaultWorkingDirectory)
   workingDirectory: '$(System.DefaultWorkingDirectory)'
   displayName: 'Get Environment Tenant Details'
+  env:
+    PLAY_ADMIN_PASSWORD: $(play_admin_password)
+    DEV_ADMIN_PASSWORD: $(dev_admin_password)
+    QA_ADMIN_PASSWORD: $(qa_admin_password)
+    PROD_ADMIN_PASSWORD: $(prod_admin_password)
 
 - script: |
     cd ../$(repoName)
     pwd
     echo $(source_type)
     echo $(admin_user)
-    echo "newman run ./resources/test/wmio_test.json -e ./resources/test/environments/$(source_type).json --env-var "project=$(repoName)" --env-var "user=$(admin_user)" --env-var "password=$(admin_password)" --reporters cli,junit --reporter-junit-export $(System.DefaultWorkingDirectory)/$(source_type)/results/junitReport.xml
     ls -ltr $(System.DefaultWorkingDirectory)/$(source_type)/results/"    
 
-    newman run ./resources/test/wmio_test.json -e ./resources/test/environments/$(source_type).json --env-var "project=$(repoName)" --env-var "user=$(admin_user)" --env-var "password=$(admin_password)" --reporters cli,junit --reporter-junit-export $(System.DefaultWorkingDirectory)/$(source_type)/results/junitReport.xml
+    newman run ./resources/test/wmio_test.json -e ./resources/test/environments/$(source_type).json --env-var "project=$(repoName)" --env-var "user=$(admin_user)" --env-var "password=$(tenant_admin_password)" --reporters cli,junit --reporter-junit-export $(System.DefaultWorkingDirectory)/$(source_type)/results/junitReport.xml
     ls -ltr $(System.DefaultWorkingDirectory)/$(source_type)/results/
   displayName: 'Run newman'
 - task: PublishTestResults@2
