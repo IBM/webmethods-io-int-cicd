@@ -74,14 +74,48 @@ printf '201'
         self.assertEqual(0, result.returncode, result.stderr + result.stdout)
         self.assertEqual("qa", payload["gitBranch"])
         self.assertNotIn("scaffoldingBranch", payload)
-        self.assertIn("scaffolding branch 'dev', target branch 'qa'", result.stderr)
+        self.assertIn("recorded branch 'dev', target branch 'qa'", result.stderr)
         self.assertEqual(original, scaffolding.read_text(encoding="utf-8"))
 
     def test_legacy_debug_argument_preserves_scaffolding_branch(self):
         result, payload = self.invoke("debug")
         self.assertEqual(0, result.returncode, result.stderr + result.stdout)
         self.assertEqual("dev", payload["gitBranch"])
-        self.assertIn("scaffolding branch 'dev', target branch 'dev'", result.stderr)
+        self.assertIn("recorded branch 'dev', target branch 'dev'", result.stderr)
+
+    def test_internal_git_project_imports_from_framework_metadata(self):
+        project_root = self.workspace / "sample"
+        (project_root / "project-config.yml").write_text(
+            "project:\n  project-id: id\n  project-name: sample\n  external-git:\n    enabled: false\n",
+            encoding="utf-8",
+        )
+        metadata = project_root / "assets/dada/config/imported-package-metadata.yml"
+        metadata.write_text(
+            """version: "1.0"
+packages:
+  - name: InternalSupport
+    gitUrl: https://git.example/scm/packages
+    gitServerName: user_git
+    gitUsername: developer
+    gitBranch: development
+""",
+            encoding="utf-8",
+        )
+        mapping = project_root / "assets/dada/config/imported-package-branches.yml"
+        mapping.write_text(
+            """version: "1.0"
+packages:
+  InternalSupport:
+    branches:
+      qa: release/qa
+""",
+            encoding="utf-8",
+        )
+        result, payload = self.invoke("qa", "debug")
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        self.assertEqual("InternalSupport", payload["packageName"])
+        self.assertEqual("https://git.example/scm/packages", payload["gitUrl"])
+        self.assertEqual("release/qa", payload["gitBranch"])
 
     def test_explicit_mapping_overrides_environment_name(self):
         mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"

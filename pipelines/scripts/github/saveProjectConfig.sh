@@ -33,11 +33,8 @@ repo_dir="${home_dir}/${repo_name}"
 config_file="${repo_dir}/project-config.yml"
 mkdir -p "$repo_dir"
 touch "$config_file"
-
-PROJECT_ID="$project_id" PROJECT_NAME="$repo_name" yq -i '
-  .project."project-id" = strenv(PROJECT_ID) |
-  .project."project-name" = strenv(PROJECT_NAME)
-' "$config_file"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_config_updater="${script_dir}/../updateProjectConfig.sh"
 
 has_external_git_flag=$(yq '.project."external-git" | has("enabled")' "$config_file")
 existing_external_git=$(yq '.project."external-git".enabled' "$config_file")
@@ -52,28 +49,14 @@ if [ "$existing_external_git" = "true" ] || { [ "$has_external_git_flag" != "tru
 fi
 
 if [ "$external_git_enabled" = "true" ] && { [ "$project_existed" != "true" ] || { [ "$repo_existed" = "true" ] && [ "$trusted_external_git" = "true" ]; }; }; then
-  EXTERNAL_GIT_REPOSITORY="$external_git_repository" \
-  EXTERNAL_GIT_API_REPOSITORY_PATH="$external_git_api_repository_path" \
-  EXTERNAL_GIT_BRANCH="$external_git_branch" \
-  EXTERNAL_GIT_ACCOUNT_ALIAS="$external_git_account_alias" \
-  yq -i '
-    .project."external-git".enabled = true |
-    .project."external-git".repository = strenv(EXTERNAL_GIT_REPOSITORY) |
-    .project."external-git"."api-repository-path" = strenv(EXTERNAL_GIT_API_REPOSITORY_PATH) |
-    .project."external-git".branch = strenv(EXTERNAL_GIT_BRANCH) |
-    .project."external-git"."account-alias" = strenv(EXTERNAL_GIT_ACCOUNT_ALIAS) |
-    del(.project.dada)
-  ' "$config_file"
+  bash "$project_config_updater" "$config_file" "$repo_name" "$project_id" true \
+    "$external_git_repository" "$external_git_api_repository_path" \
+    "$external_git_branch" "$external_git_account_alias" || exit $?
 elif [ "$external_git_enabled" = "true" ]; then
-  yq -i '
-    .project."external-git".enabled = false |
-    del(.project."external-git".repository,
-        .project."external-git"."api-repository-path",
-        .project."external-git".branch,
-        .project."external-git"."account-alias",
-        .project.dada)
-  ' "$config_file"
+  bash "$project_config_updater" "$config_file" "$repo_name" "$project_id" false || exit $?
   echo "Project already existed without trusted external Git metadata; conversion was not performed." >&2
+else
+  bash "$project_config_updater" "$config_file" "$repo_name" "$project_id" false || exit $?
 fi
 
 cd "$repo_dir"

@@ -57,3 +57,34 @@ class ExternalGitMetadataTests(WorkspaceTest):
         self.assertNotIn("repository:", content)
         self.assertNotIn("dada:", content)
 
+    def test_shared_updater_records_internal_git_explicitly(self):
+        config = self.workspace / "project-config.yml"
+        config.write_text(
+            "project:\n  project-id: old-id\n  project-name: sample\n  dada:\n    enabled: true\n",
+            encoding="utf-8",
+        )
+        result = run([
+            "bash", SCRIPTS / "updateProjectConfig.sh", config,
+            "sample", "new-id", "false",
+        ])
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        content = config.read_text(encoding="utf-8")
+        self.assertIn("project-id: new-id", content)
+        self.assertIn("external-git:\n    enabled: false", content)
+        self.assertNotIn("repository:", content)
+        self.assertNotIn("dada:", content)
+
+    def test_shared_updater_records_external_git_details(self):
+        config = self.workspace / "project-config.yml"
+        result = run([
+            "bash", SCRIPTS / "updateProjectConfig.sh", config,
+            "sample", "new-id", "true", "owner/sampleProject",
+            "owner/SampleProject", "dev", "user_git",
+        ])
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        content = config.read_text(encoding="utf-8")
+        self.assertIn("enabled: true", content)
+        self.assertIn("repository: owner/sampleProject", content)
+        self.assertIn("api-repository-path: owner/SampleProject", content)
+        self.assertIn("branch: dev", content)
+        self.assertIn("account-alias: user_git", content)

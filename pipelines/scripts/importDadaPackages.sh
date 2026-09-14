@@ -32,33 +32,58 @@ function echod() {
   fi
 }
 
+project_config="${automation_repo_dir}/project-config.yml"
 scaffolding_dir="${automation_repo_dir}/assets/dada/config/scaffolding"
-if [ ! -d "$scaffolding_dir" ]; then
-  echod "No DADA scaffolding directory found; skipping external package import."
-  exit 0
+package_metadata="${automation_repo_dir}/assets/dada/config/imported-package-metadata.yml"
+external_mode=""
+if [ -f "$project_config" ]; then
+  has_external_mode=$(yq e '.project."external-git" | has("enabled")' "$project_config")
+  if [ "$has_external_mode" = "true" ]; then
+    external_mode=$(yq e '.project."external-git".enabled' "$project_config")
+  else
+    external_mode=$(yq e '.project.dada.enabled // ""' "$project_config")
+  fi
 fi
 
 scaffolding_files=()
 while IFS= read -r scaffolding_path; do
   scaffolding_files+=("$scaffolding_path")
-done < <(find "$scaffolding_dir" -maxdepth 1 -type f \
+done < <([ -d "$scaffolding_dir" ] && find "$scaffolding_dir" -maxdepth 1 -type f \
   -name '*.yml' ! -name 'projectmapping.yml' -print)
 
-if [ "${#scaffolding_files[@]}" -eq 0 ]; then
-  echo "DADA metadata exists, but the project scaffolding file is missing." >&2
-  exit 1
-fi
-if [ "${#scaffolding_files[@]}" -ne 1 ]; then
-  echo "Expected one DADA project scaffolding file, found ${#scaffolding_files[@]}." >&2
-  exit 1
+if [ "$external_mode" = "true" ]; then
+  [ "${#scaffolding_files[@]}" -eq 0 ] && echo "External-Git project scaffolding is missing." >&2 && exit 1
+  [ "${#scaffolding_files[@]}" -ne 1 ] && echo "Expected one DADA project scaffolding file, found ${#scaffolding_files[@]}." >&2 && exit 1
+  package_source_file="${scaffolding_files[0]}"
+  project_package_name="$(basename "$package_source_file" .yml)"
+elif [ "$external_mode" = "false" ]; then
+  if [ ! -f "$package_metadata" ]; then
+    echod "Internal-Git project has no imported-package metadata; skipping package import."
+    exit 0
+  fi
+  package_source_file="$package_metadata"
+  project_package_name=""
+else
+  # Backward compatibility for exports created before project mode was recorded.
+  if [ "${#scaffolding_files[@]}" -eq 1 ]; then
+    package_source_file="${scaffolding_files[0]}"
+    project_package_name="$(basename "$package_source_file" .yml)"
+  elif [ -f "$package_metadata" ]; then
+    package_source_file="$package_metadata"
+    project_package_name=""
+  elif [ "${#scaffolding_files[@]}" -gt 1 ]; then
+    echo "Expected one DADA project scaffolding file, found ${#scaffolding_files[@]}." >&2
+    exit 1
+  else
+    echod "No imported-package metadata found; skipping package import."
+    exit 0
+  fi
 fi
 
-scaffolding_file="${scaffolding_files[0]}"
-project_package_name="$(basename "$scaffolding_file" .yml)"
 branch_mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 
-if ! yq e '.' "$scaffolding_file" >/dev/null 2>&1; then
-  echo "DADA scaffolding is not valid YAML: ${scaffolding_file}" >&2
+if ! yq e '.' "$package_source_file" >/dev/null 2>&1; then
+  echo "Imported-package metadata is not valid YAML: ${package_source_file}" >&2
   exit 1
 fi
 
@@ -71,7 +96,7 @@ if [ -f "$branch_mapping_file" ]; then
   branch_mapping_json=$(yq -o=json e '.' "$branch_mapping_file")
 fi
 
-packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
+packages_json=$(yq -o=json e '.packages // []' "$package_source_file" | jq -c \
   --arg projectPackage "$project_package_name" \
   --arg targetEnvironment "$target_environment" \
   --argjson branchMapping "$branch_mapping_json" \
@@ -90,7 +115,7 @@ packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
             else $targetEnvironment
             end
           ),
-          scaffoldingBranch: .gitBranch
+          sourceBranch: .gitBranch
         }
     ]
   ')
@@ -107,7 +132,7 @@ if ! jq -e 'all(.[];
   (.gitServerName | type == "string" and length > 0) and
   (.gitUserName | type == "string" and length > 0) and
   (.gitBranch | type == "string" and length > 0) and
-  (.scaffoldingBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
+  (.sourceBranch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
   echo "One or more external package entries have incomplete Git details." >&2
   if [ -f "$branch_mapping_file" ] && [ -n "$target_environment" ]; then
     echo "Ensure every imported package defines a branch for environment '${target_environment}' in ${branch_mapping_file}." >&2
@@ -119,14 +144,14 @@ import_url="${LOCAL_DEV_URL}/apis/v1/rest/projects/${project_name}/configuration
 response_file=$(mktemp)
 trap 'rm -f "$response_file"' EXIT
 
-echod "Importing ${package_count} external package(s) from destination-branch scaffolding."
+echod "Importing ${package_count} external package(s) from destination-branch metadata."
 while IFS= read -r package_payload; do
   package_name=$(jq -r '.packageName' <<< "$package_payload")
   package_branch=$(jq -r '.gitBranch' <<< "$package_payload")
-  scaffolding_branch=$(jq -r '.scaffoldingBranch' <<< "$package_payload")
-  request_payload=$(jq -c 'del(.scaffoldingBranch)' <<< "$package_payload")
+  source_branch=$(jq -r '.sourceBranch' <<< "$package_payload")
+  request_payload=$(jq -c 'del(.sourceBranch)' <<< "$package_payload")
 
-  echod "Importing dependent package '${package_name}': scaffolding branch '${scaffolding_branch}', target branch '${package_branch}'."
+  echod "Importing dependent package '${package_name}': recorded branch '${source_branch}', target branch '${package_branch}'."
   http_status=$(curl --silent --show-error --location \
     --output "$response_file" --write-out '%{http_code}' \
     --request POST "$import_url" \

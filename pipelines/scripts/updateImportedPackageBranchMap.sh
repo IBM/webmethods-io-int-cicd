@@ -5,7 +5,7 @@
 #############################################################################
 
 automation_repo_dir="$1"
-scaffolding_file="$2"
+package_source_file="$2"
 environment_config_dir="$3"
 debug="${4:-}"
 
@@ -13,15 +13,15 @@ if [[ "$debug" != "debug" && "$debug" != "trace" ]]; then
   debug=""
 fi
 
-for required in automation_repo_dir scaffolding_file environment_config_dir; do
+for required in automation_repo_dir package_source_file environment_config_dir; do
   [ -z "${!required}" ] && echo "Missing template parameter ${required}" >&2 && exit 1
 done
 
-[ ! -f "$scaffolding_file" ] && echo "Scaffolding file does not exist: ${scaffolding_file}" >&2 && exit 1
+[ ! -f "$package_source_file" ] && echo "Package metadata file does not exist: ${package_source_file}" >&2 && exit 1
 [ ! -d "$environment_config_dir" ] && echo "Environment configuration directory does not exist: ${environment_config_dir}" >&2 && exit 1
 
-project_package_name="$(basename "$scaffolding_file" .yml)"
-packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
+project_package_name="$(basename "$package_source_file" .yml)"
+packages_json=$(yq -o=json e '.packages // []' "$package_source_file" | jq -c \
   --arg projectPackage "$project_package_name" \
   '[.[] | select(.name != $projectPackage) | {name: .name, branch: .gitBranch}]
    | unique_by(.name)')
@@ -29,7 +29,7 @@ packages_json=$(yq -o=json e '.packages // []' "$scaffolding_file" | jq -c \
 if ! jq -e 'type == "array" and all(.[];
   (.name | type == "string" and length > 0) and
   (.branch | type == "string" and length > 0))' <<< "$packages_json" >/dev/null; then
-  echo "Scaffolding contains an invalid imported-package name or branch." >&2
+  echo "Package metadata contains an invalid imported-package name or branch." >&2
   exit 1
 fi
 
@@ -85,7 +85,7 @@ updated_json=$(jq -c \
   --argjson environments "$environments_json" \
   --arg sourceEnvironment "$source_environment" '
     .version = (.version // "1.0") |
-    .packages = (.packages // {}) |
+    .packages = ((.packages // {}) | with_entries(. as $entry | select(any($packages[]; .name == $entry.key)))) |
     reduce $packages[] as $package (.;
       .packages[$package.name] = (.packages[$package.name] // {}) |
       .packages[$package.name].branches = (.packages[$package.name].branches // {}) |
