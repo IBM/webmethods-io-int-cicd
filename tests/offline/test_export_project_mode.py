@@ -88,3 +88,41 @@ fi
         mapping = self.project / "assets/dada/config/imported-package-branches.yml"
         self.assertTrue(mapping.exists())
         self.assertFalse((self.project / "assets/dada/config/scaffolding").exists())
+
+    def test_export_reuses_previously_downloaded_project_configuration(self):
+        (self.project / "project-config.yml").write_text(
+            "project:\n"
+            "  project-id: legacy-id\n"
+            "  project-name: sample\n"
+            "  external-git:\n"
+            "    enabled: false\n",
+            encoding="utf-8",
+        )
+        cached_config = self.project / "assets/projectConfigs/ProjectConfiguration/ProjectConfiguration_List_Full.json"
+        cached_config.parent.mkdir(parents=True)
+        cached_config.write_text(
+            json.dumps({
+                "metadata": {"project": "cached-api-id"},
+                "configurations": {"packages": []},
+            }),
+            encoding="utf-8",
+        )
+        self.write(
+            "mock-bin/curl",
+            "#!/bin/bash\necho 'curl must not be called when cached configuration is valid' >&2\nexit 99\n",
+            executable=True,
+        )
+
+        result = run(
+            [
+                "bash", SCRIPTS / "exportDadaMetadata.sh",
+                "https://tenant.example", "admin", "SECRET", "sample",
+                self.project, "owner", "PAT", self.configs, "debug",
+            ],
+            env={"PATH": f"{self.mock_bin}:{os.environ['PATH']}"},
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        self.assertIn("Reusing exported project configuration", result.stderr)
+        project_config = (self.project / "project-config.yml").read_text(encoding="utf-8")
+        self.assertIn("project-id: cached-api-id", project_config)

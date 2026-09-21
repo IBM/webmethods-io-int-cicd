@@ -34,6 +34,7 @@ config_root="${automation_repo_dir}/assets/dada/config"
 scaffolding_destination="${config_root}/scaffolding"
 package_metadata="${config_root}/imported-package-metadata.yml"
 branch_mapping="${config_root}/imported-package-branches.yml"
+exported_project_config="${automation_repo_dir}/assets/projectConfigs/ProjectConfiguration/ProjectConfiguration_List_Full.json"
 response_file=$(mktemp)
 repo_response_file=$(mktemp)
 temp_dir=$(mktemp -d)
@@ -41,23 +42,29 @@ trap 'rm -f "$response_file" "$repo_response_file"; rm -rf "$temp_dir"' EXIT
 
 [ ! -f "$project_config" ] && echo "Project configuration file does not exist: ${project_config}" >&2 && exit 1
 
-config_url="${LOCAL_DEV_URL}/apis/v2/rest/projects/${project_name}/configurations"
-http_status=$(curl --silent --show-error --location \
-  --output "$response_file" --write-out '%{http_code}' \
-  --header 'Accept: application/json' \
-  --user "${admin_user}:${admin_password}" \
-  "$config_url") || {
-    echo "Failed to query project configurations for '${project_name}'." >&2
-    exit 1
-  }
+if [ -f "$exported_project_config" ] && \
+   jq -e '.configurations.packages | type == "array"' "$exported_project_config" >/dev/null 2>&1; then
+  echod "Reusing exported project configuration from ${exported_project_config}."
+  cp "$exported_project_config" "$response_file"
+else
+  config_url="${LOCAL_DEV_URL}/apis/v2/rest/projects/${project_name}/configurations"
+  http_status=$(curl --silent --show-error --location \
+    --output "$response_file" --write-out '%{http_code}' \
+    --header 'Accept: application/json' \
+    --user "${admin_user}:${admin_password}" \
+    "$config_url") || {
+      echo "Failed to query project configurations for '${project_name}'." >&2
+      exit 1
+    }
 
-if [[ ! "$http_status" =~ ^2[0-9][0-9]$ ]]; then
-  echo "Project configuration API failed with HTTP ${http_status}: $(cat "$response_file")" >&2
-  exit 1
-fi
-if ! jq empty "$response_file" >/dev/null 2>&1; then
-  echo "Project configuration API returned invalid JSON." >&2
-  exit 1
+  if [[ ! "$http_status" =~ ^2[0-9][0-9]$ ]]; then
+    echo "Project configuration API failed with HTTP ${http_status}: $(cat "$response_file")" >&2
+    exit 1
+  fi
+  if ! jq empty "$response_file" >/dev/null 2>&1; then
+    echo "Project configuration API returned invalid JSON." >&2
+    exit 1
+  fi
 fi
 if ! jq -e '.configurations.packages | type == "array"' "$response_file" >/dev/null 2>&1; then
   echo "Project configuration response does not contain a configurations.packages array." >&2
