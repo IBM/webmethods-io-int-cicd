@@ -67,27 +67,41 @@ function exportProjectConfigurationList() {
 
     PROJECT_CONFIGURATION_IMPORT_LIST_URL="${LOCAL_DEV_URL}/apis/v2/rest/projects/${repoName}/configurations"
 
-    # Call API to get Project Configuration list
-    ProjectConfigurationListJson=$(curl --silent --location --request GET "${PROJECT_CONFIGURATION_IMPORT_LIST_URL}" \
+    output_dir="./assets/projectConfigs/ProjectConfiguration"
+    export_file="$output_dir/ProjectConfiguration_List_Full.json"
+    response_file=$(mktemp)
+
+    # Call API to get Project Configuration list and retain the HTTP status.
+    http_status=$(curl --silent --show-error --location --request GET "${PROJECT_CONFIGURATION_IMPORT_LIST_URL}" \
+        --output "$response_file" --write-out '%{http_code}' \
         --header 'Content-Type: application/json' \
         --header 'Accept: application/json' \
-        -u "${admin_user}:${admin_password}")
+        -u "${admin_user}:${admin_password}") || {
+            rm -f "$response_file"
+            echo "⚠️ Project configuration request failed; preserving any previous valid export."
+            return 0
+        }
 
-    # Validate response
-    if [ -z "$ProjectConfigurationListJson" ] || [ "$ProjectConfigurationListJson" == "null" ]; then
-        echo "❌ No Project Configurations retrieved."
-        echo "$ProjectConfigurationListJson"
-        return
+    # Never replace valid configuration artifacts with an API error response.
+    if [[ ! "$http_status" =~ ^2[0-9][0-9]$ ]] || \
+       ! jq -e '.configurations | type == "object"' "$response_file" >/dev/null 2>&1; then
+        if [ -f "$export_file" ] && \
+           ! jq -e '.configurations | type == "object"' "$export_file" >/dev/null 2>&1; then
+            rm -rf "$output_dir"
+            echo "Removed previously generated invalid project configuration artifacts."
+        fi
+        rm -f "$response_file"
+        echo "⚠️ Project configuration export skipped (HTTP ${http_status}); no valid configuration payload was returned."
+        return 0
     fi
 
     # Pretty print for local storage
-    ProjectConfigurationListExport=$(echo "$ProjectConfigurationListJson" | jq '.')
+    ProjectConfigurationListExport=$(jq '.' "$response_file")
+    rm -f "$response_file"
 
-    output_dir="./assets/projectConfigs/ProjectConfiguration"
     mkdir -p "$output_dir"
 
     # Save full export
-    export_file="$output_dir/ProjectConfiguration_List_Full.json"
     echo "$ProjectConfigurationListExport" > "$export_file"
     echo "✅ Full project configuration list saved to: $export_file"
 
