@@ -103,7 +103,7 @@ fi
         cached_config.write_text(
             json.dumps({
                 "metadata": {"project": "cached-api-id"},
-                "configurations": {"packages": []},
+                "configurations": {"packages": None},
             }),
             encoding="utf-8",
         )

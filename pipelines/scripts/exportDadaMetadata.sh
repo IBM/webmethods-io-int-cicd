@@ -43,9 +43,9 @@ trap 'rm -f "$response_file" "$repo_response_file"; rm -rf "$temp_dir"' EXIT
 [ ! -f "$project_config" ] && echo "Project configuration file does not exist: ${project_config}" >&2 && exit 1
 
 if [ -f "$exported_project_config" ] && \
-   jq -e '.configurations.packages | type == "array"' "$exported_project_config" >/dev/null 2>&1; then
+   jq -e '.configurations | type == "object"' "$exported_project_config" >/dev/null 2>&1; then
   echod "Reusing exported project configuration from ${exported_project_config}."
-  cp "$exported_project_config" "$response_file"
+  jq '.configurations.packages //= []' "$exported_project_config" > "$response_file"
 else
   config_url="${LOCAL_DEV_URL}/apis/v2/rest/projects/${project_name}/configurations"
   http_status=$(curl --silent --show-error --location \
@@ -65,6 +65,9 @@ else
     echo "Project configuration API returned invalid JSON." >&2
     exit 1
   fi
+  normalized_response=$(mktemp)
+  jq '.configurations.packages //= []' "$response_file" > "$normalized_response" && \
+    mv "$normalized_response" "$response_file"
 fi
 if ! jq -e '.configurations.packages | type == "array"' "$response_file" >/dev/null 2>&1; then
   echo "Project configuration response does not contain a configurations.packages array." >&2
