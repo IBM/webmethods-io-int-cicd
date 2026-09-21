@@ -57,17 +57,31 @@ else
       exit 1
     }
 
-  if [[ ! "$http_status" =~ ^2[0-9][0-9]$ ]]; then
-    echo "Project configuration API failed with HTTP ${http_status}: $(cat "$response_file")" >&2
-    exit 1
+  if [[ "$http_status" =~ ^2[0-9][0-9]$ ]] && \
+     jq -e '.configurations | type == "object"' "$response_file" >/dev/null 2>&1; then
+    normalized_response=$(mktemp)
+    jq '.configurations.packages //= []' "$response_file" > "$normalized_response" && \
+      mv "$normalized_response" "$response_file"
+  else
+    echod "Full project configuration was unavailable (HTTP ${http_status}); querying imported packages directly."
+    packages_url="${LOCAL_DEV_URL}/apis/v1/rest/projects/${project_name}/configurations/packages"
+    packages_status=$(curl --silent --show-error --location \
+      --output "$response_file" --write-out '%{http_code}' \
+      --header 'Accept: application/json' \
+      --user "${admin_user}:${admin_password}" \
+      "$packages_url") || {
+        echo "Failed to query imported packages for '${project_name}'." >&2
+        exit 1
+      }
+    if [[ ! "$packages_status" =~ ^2[0-9][0-9]$ ]] || \
+       ! jq -e '(.output == null) or (.output | type == "array")' "$response_file" >/dev/null 2>&1; then
+      echo "Imported packages API failed with HTTP ${packages_status}: $(cat "$response_file")" >&2
+      exit 1
+    fi
+    normalized_response=$(mktemp)
+    jq '{configurations: {packages: (.output // [])}}' "$response_file" > "$normalized_response" && \
+      mv "$normalized_response" "$response_file"
   fi
-  if ! jq empty "$response_file" >/dev/null 2>&1; then
-    echo "Project configuration API returned invalid JSON." >&2
-    exit 1
-  fi
-  normalized_response=$(mktemp)
-  jq '.configurations.packages //= []' "$response_file" > "$normalized_response" && \
-    mv "$normalized_response" "$response_file"
 fi
 if ! jq -e '.configurations.packages | type == "array"' "$response_file" >/dev/null 2>&1; then
   echo "Project configuration response does not contain a configurations.packages array." >&2

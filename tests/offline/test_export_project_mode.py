@@ -39,9 +39,12 @@ while [ "$#" -gt 0 ]; do
     *) shift ;;
   esac
 done
-if [[ "$url" == *'/configurations' ]]; then
-  cp "$WMIO_CONFIG_RESPONSE" "$output"
+if [[ "$url" == *'/configurations/packages' ]]; then
+  cp "$WMIO_PACKAGES_RESPONSE" "$output"
   printf '200'
+elif [[ "$url" == *'/configurations' ]]; then
+  cp "$WMIO_CONFIG_RESPONSE" "$output"
+  printf '%s' "${WMIO_CONFIG_STATUS:-200}"
 else
   printf '%s' '{"message":"Not Found"}' > "$output"
   printf '404'
@@ -75,6 +78,7 @@ fi
             env={
                 "PATH": f"{self.mock_bin}:{os.environ['PATH']}",
                 "WMIO_CONFIG_RESPONSE": str(response),
+                "WMIO_PACKAGES_RESPONSE": str(response),
             },
         )
         self.assertEqual(0, result.returncode, result.stderr + result.stdout)
@@ -126,3 +130,29 @@ fi
         self.assertIn("Reusing exported project configuration", result.stderr)
         project_config = (self.project / "project-config.yml").read_text(encoding="utf-8")
         self.assertIn("project-id: cached-api-id", project_config)
+
+    def test_export_falls_back_to_package_endpoint_when_full_configuration_fails(self):
+        error_response = self.write_json(
+            "configuration-error.json", {"code": 502, "message": "Bad Gateway"}
+        )
+        packages_response = self.write_json("packages-response.json", {"output": None})
+
+        result = run(
+            [
+                "bash", SCRIPTS / "exportDadaMetadata.sh",
+                "https://tenant.example", "admin", "SECRET", "sample",
+                self.project, "owner", "PAT", self.configs, "debug",
+            ],
+            env={
+                "PATH": f"{self.mock_bin}:{os.environ['PATH']}",
+                "WMIO_CONFIG_RESPONSE": str(error_response),
+                "WMIO_CONFIG_STATUS": "502",
+                "WMIO_PACKAGES_RESPONSE": str(packages_response),
+            },
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        self.assertIn("querying imported packages directly", result.stderr)
+        self.assertFalse(
+            (self.project / "assets/dada/config/imported-package-metadata.yml").exists()
+        )
