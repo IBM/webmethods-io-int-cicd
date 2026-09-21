@@ -2,4 +2,5 @@ tenant:
   hostname: "dev6610096.a-fra-c1.int.ipaas.automation.ibm.com"   # webMethodsIO Integration hostname or ip address
   port: "443"                                       # webMethodsIO Integration port
   admin_username: "gitops"                     # webMethodsIO Integration user  
-  type: "dev"                                         #DEV
+  type: "dev"
+  generation: "gen2"                                      #DEV

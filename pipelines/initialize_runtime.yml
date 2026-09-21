@@ -48,6 +48,8 @@ steps:
     echo "##vso[task.setvariable variable=source_environment_port]`yq -e ".tenant.port" configs/env/$(environment).yml`"
     echo "##vso[task.setvariable variable=admin_user]`yq -e ".tenant.admin_username" configs/env/$(environment).yml`"
     echo "##vso[task.setvariable variable=source_type]`yq -e ".tenant.type" configs/env/$(environment).yml`"
+    tenant_generation=$(yq -r '.tenant.generation // "gen1"' configs/env/$(environment).yml)
+    echo "##vso[task.setvariable variable=tenant_generation]${tenant_generation}"
     echo "##vso[task.setvariable variable=repo_user]`yq -e ".repo.user" configs/repo.yml`"
     
         echo $(System.DefaultWorkingDirectory)
@@ -56,6 +58,9 @@ steps:
 - script: |
       cd ../
       LOCAL_DEV_URL=https://$(source_environment_hostname):$(source_environment_port)
+      export IWHI_BASE_URL="$LOCAL_DEV_URL"
+      export TENANT_GENERATION="$(tenant_generation)"
+      export PATH="$(System.DefaultWorkingDirectory)/../self/pipelines/scripts/http:${PATH}"
       echo ${LOCAL_DEV_URL}
       HOME_DIR=$(System.DefaultWorkingDirectory)/../
       chmod +x ./self/pipelines/scripts/*.sh
@@ -83,6 +88,7 @@ steps:
   displayName: 'Register Runtime & Fetch  Details'
   env:
     TENANT_ADMIN_PASSWORD: $(play_admin_password)
+    INSTANCE_API_KEY: $(play_instance_api_key)
   enabled: true
 - pwsh: |
      az extension add --name azure-devops
