@@ -24,7 +24,7 @@ parameters:
 - name: externalGitAccountAlias
   displayName: External Git connection alias
   type: string
-  default: ''
+  default: 'NA'
 - name: externalGitBranch
   displayName: External Git project branch
   type: string
