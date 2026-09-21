@@ -94,7 +94,7 @@ function importSOAPAsset() {
       -u ${admin_user}:${admin_password})
 
     if [[ $assetType = soap_api* ]]; then
-      name=$(echo "$importedName" | jq -r '.output.message // empty')
+      name=$(echo "$importedName" | jq -r '.output.message // .output.status // empty')
       success="IMPORT_SUCCESS"
       if [ "$name" == "$success" ]; then
         echo "Import Succeeded: ${importedName}"

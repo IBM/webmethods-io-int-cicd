@@ -106,6 +106,12 @@ printf 'ok'
                 self.assertIn(f"INSTANCE_API_KEY: $({environment}_instance_api_key)", content)
                 self.assertIn("pipelines/scripts/http:${PATH}", content)
 
+    def test_api_import_accepts_gen1_and_gen2_success_responses(self):
+        for filename in ("importAsset.sh", "importSoapAPI.sh"):
+            with self.subTest(filename=filename):
+                content = (REPO_ROOT / "pipelines/scripts" / filename).read_text(encoding="utf-8")
+                self.assertIn(".output.message // .output.status // empty", content)
+
 
 if __name__ == "__main__":
     import unittest
