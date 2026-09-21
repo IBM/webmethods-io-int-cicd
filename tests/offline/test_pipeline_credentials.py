@@ -47,11 +47,14 @@ class PipelineCredentialRoutingTests(unittest.TestCase):
     def test_qa_import_uses_qa_tenant_secret(self):
         self.assert_uses_only("sychronizeToQA_pipeline.yml", "qa")
 
-    def test_import_pipelines_default_optional_api_flag_and_fail_fast(self):
+    def test_import_pipelines_detect_checked_out_apis_and_fail_fast(self):
         for filename in ("synchronizeDEV_pipeline.yml", "sychronizeToQA_pipeline.yml"):
             with self.subTest(filename=filename):
                 content = pipeline(filename)
-                self.assertIn("- name: projectHasAPIs\n  value: 'false'", content)
+                self.assertNotIn("projectHasAPIs", content)
+                self.assertIn("repositoryContainsApis", content)
+                self.assertIn("./assets/rest_api/*.zip", content)
+                self.assertIn("./assets/soap_api/*.zip", content)
                 self.assertIn("if ! project_id=$(", content)
                 self.assertIn("Package and asset import have been stopped.", content)
 

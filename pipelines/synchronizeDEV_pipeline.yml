@@ -9,8 +9,6 @@
 # repoName: (Mandatory) Name of the corresponding repository.                                                #
 # synchProject: (Mandatory) True if you want to synchronize complete project. If false, then you have to     #
 #                provide assetIDList and assetTypeList                                                       #
-# projectHasAPIs: (Optional) Set to 'true' if the project contains APIs. When true and synchProject is true, #
-#                 project creation will be skipped.
 ##############################################################################################################
 
 
@@ -21,11 +19,6 @@ variables:
 - group: azure_group
 - name: repoPath
   value: $(gitOwner)/$(repoName)
-- name: projectHasAPIs
-  value: 'false'
-  
-
-
 pool:
   vmImage: ubuntu-latest
 resources:
@@ -101,17 +94,22 @@ steps:
     chmod +x ../self/pipelines/scripts/*.sh    
     
     #### Check and create Project
-    projectHasAPIsValue="$(projectHasAPIs)"
     synchProjectValue="$(synchProject)"
     assetTypesNormalized="$(echo "$(assetTypeList)" | tr ',' '\n' | tr -d ' ' )"
     assetsDeclareApis="false"
     if echo "$assetTypesNormalized" | grep -E '^(rest_api|soap_api)$' >/dev/null 2>&1; then
       assetsDeclareApis="true"
     fi
+    repositoryContainsApis="false"
+    if compgen -G './assets/rest_api/*.zip' >/dev/null || \
+       compgen -G './assets/soap_api/*.zip' >/dev/null; then
+      repositoryContainsApis="true"
+    fi
 
-    # Skip project creation if APIs are present (flag or asset list) AND synchProject is true
-    if [[ "$synchProjectValue" == "true" && ( "$projectHasAPIsValue" == "true" || "$assetsDeclareApis" == "true" ) ]]; then
-      echo "Skipping project creation because APIs are present (flag or asset list) and synchProject is true"
+    # API import creates the project. For a full sync, derive this from the
+    # checked-out repository instead of requiring developer-supplied state.
+    if [[ "$synchProjectValue" == "true" && ( "$repositoryContainsApis" == "true" || "$assetsDeclareApis" == "true" ) ]]; then
+      echo "Skipping project creation because checked-out API exports will create the project"
     else
       echo "Fetching project id"
       existingProject_id=$(yq e '.project.project-id' "./project-config.yml")
