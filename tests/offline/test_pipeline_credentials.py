@@ -47,13 +47,28 @@ class PipelineCredentialRoutingTests(unittest.TestCase):
     def test_qa_import_uses_qa_tenant_secret(self):
         self.assert_uses_only("sychronizeToQA_pipeline.yml", "qa")
 
-    def test_import_pipelines_default_optional_api_flag_and_fail_fast(self):
+    def test_import_pipelines_delegate_project_preparation_and_fail_fast(self):
         for filename in ("synchronizeDEV_pipeline.yml", "sychronizeToQA_pipeline.yml"):
             with self.subTest(filename=filename):
                 content = pipeline(filename)
-                self.assertIn("- name: projectHasAPIs\n  value: 'false'", content)
-                self.assertIn("if ! project_id=$(", content)
-                self.assertIn("Package and asset import have been stopped.", content)
+                self.assertNotIn("projectHasAPIs", content)
+                self.assertNotIn("assetsDeclareApis", content)
+                self.assertNotIn("repositoryContainsApis", content)
+                self.assertIn("prepareImportProject.sh", content)
+                self.assertIn("Project preparation failed.", content)
+
+    def test_project_preparation_owns_rest_and_soap_detection(self):
+        preparation = (PIPELINES / "scripts" / "prepareImportProject.sh").read_text(
+            encoding="utf-8"
+        )
+        creation = (PIPELINES / "scripts" / "createProject.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('assets/rest_api/*.zip', preparation)
+        self.assertIn('assets/soap_api/*.zip', preparation)
+        self.assertIn("synchProject", preparation)
+        self.assertIn("assetTypeList", preparation)
+        self.assertIn("REST API exports detected", creation)
 
     def test_dynamic_testing_selects_password_without_logging_it(self):
         content = pipeline("InitiateTesting.yml")

@@ -78,7 +78,8 @@ fi
 
 
 if [ -z "$uid" ]; then
-    # If REST API exports exist locally, let API import create the project
+    # Backward-compatible fallback for callers that invoke createProject.sh
+    # directly instead of using prepareImportProject.sh.
     rest_api_dir="${HOME_DIR:-.}/${repoName}/assets/rest_api"
     if [ -d "$rest_api_dir" ] && ls "$rest_api_dir"/*.zip >/dev/null 2>&1; then
       echod "Project not found, but REST API exports detected. Skipping explicit project creation; project will be created during API import."
