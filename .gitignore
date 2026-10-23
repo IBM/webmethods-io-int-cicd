@@ -1,2 +1,5 @@
 .DS_Store
 logCopy
+# Ignore any Bob files in local repo
+**/.bob
+**/.claude

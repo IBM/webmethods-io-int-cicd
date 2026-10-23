@@ -67,7 +67,7 @@ function importSOAPAsset() {
 
   if [[ $assetType = soap_api* ]]; then
     IMPORT_URL=${LOCAL_DEV_URL}/apis/v1/rest/project-import
-    cd ${HOME_DIR}/${repoName}/assets/soap_api
+    cd "${HOME_DIR}/${repoName}/assets/soap_api" || return 1
     echo "SOAP API Import: ${IMPORT_URL}"
     ls -ltr
   fi
@@ -99,19 +99,22 @@ function importSOAPAsset() {
       if [ "$name" == "$success" ]; then
         echo "Import Succeeded: ${importedName}"
       else
-        echo "Import Failed: ${importedName}"
+        echo "Import Failed: ${importedName}" >&2
+        return 1
       fi
     else
       name=$(echo "$importedName" | jq -r '.output.name // empty')
       if [ -z "$name" ]; then
-        echo "Import failed: ${importedName}"
+        echo "Import failed: ${importedName}" >&2
+        return 1
       else
         echo "Import Succeeded: ${importedName}"
       fi
     fi
   else
-    echo "$FILE does not exist, Nothing to import"
+    echo "$FILE does not exist, Nothing to import" >&2
+    return 1
   fi
 
-  cd ${HOME_DIR}/${repoName}
+  cd "${HOME_DIR}/${repoName}" || return 1
 }
