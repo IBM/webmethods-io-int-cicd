@@ -117,6 +117,49 @@ packages:
         self.assertEqual("https://git.example/scm/packages", payload["gitUrl"])
         self.assertEqual("release/qa", payload["gitBranch"])
 
+    def test_external_git_without_imported_packages_is_a_no_op(self):
+        project_root = self.workspace / "sample"
+        (project_root / "project-config.yml").write_text(
+            "project:\n  project-id: id\n  project-name: sample\n  external-git:\n    enabled: true\n",
+            encoding="utf-8",
+        )
+        config_root = project_root / "assets/dada/config"
+        for path in sorted(config_root.rglob("*"), reverse=True):
+            if path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                path.rmdir()
+        result = run(
+            [
+                "bash", SCRIPTS / "importDadaPackages.sh",
+                "https://tenant.example", "admin", "SECRET", "sample",
+                project_root, "qa", "debug",
+            ]
+        )
+        self.assertEqual(0, result.returncode, result.stderr + result.stdout)
+        self.assertIn("has no imported-package metadata", result.stderr)
+
+    def test_external_git_with_partial_metadata_still_fails(self):
+        project_root = self.workspace / "sample"
+        (project_root / "project-config.yml").write_text(
+            "project:\n  project-id: id\n  project-name: sample\n  external-git:\n    enabled: true\n",
+            encoding="utf-8",
+        )
+        scaffolding = project_root / "assets/dada/config/scaffolding"
+        for path in scaffolding.glob("*.yml"):
+            path.unlink()
+        mapping = project_root / "assets/dada/config/imported-package-branches.yml"
+        mapping.write_text("version: \"1.0\"\npackages: {}\n", encoding="utf-8")
+        result = run(
+            [
+                "bash", SCRIPTS / "importDadaPackages.sh",
+                "https://tenant.example", "admin", "SECRET", "sample",
+                project_root, "qa", "debug",
+            ]
+        )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("scaffolding is missing while DADA metadata is present", result.stderr)
+
     def test_explicit_mapping_overrides_environment_name(self):
         mapping = self.workspace / "sample/assets/dada/config/imported-package-branches.yml"
         mapping.write_text(

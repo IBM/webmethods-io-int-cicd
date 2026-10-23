@@ -35,6 +35,7 @@ function echod() {
 project_config="${automation_repo_dir}/project-config.yml"
 scaffolding_dir="${automation_repo_dir}/assets/dada/config/scaffolding"
 package_metadata="${automation_repo_dir}/assets/dada/config/imported-package-metadata.yml"
+branch_mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 external_mode=""
 if [ -f "$project_config" ]; then
   has_external_mode=$(yq e '.project."external-git" | has("enabled")' "$project_config")
@@ -52,7 +53,15 @@ done < <([ -d "$scaffolding_dir" ] && find "$scaffolding_dir" -maxdepth 1 -type 
   -name '*.yml' ! -name 'projectmapping.yml' -print)
 
 if [ "$external_mode" = "true" ]; then
-  [ "${#scaffolding_files[@]}" -eq 0 ] && echo "External-Git project scaffolding is missing." >&2 && exit 1
+  if [ "${#scaffolding_files[@]}" -eq 0 ]; then
+    if [ -f "$package_metadata" ] || [ -f "$branch_mapping_file" ] || \
+       [ -f "${scaffolding_dir}/projectmapping.yml" ]; then
+      echo "External-Git project scaffolding is missing while DADA metadata is present." >&2
+      exit 1
+    fi
+    echod "External-Git project has no imported-package metadata; skipping package import."
+    exit 0
+  fi
   [ "${#scaffolding_files[@]}" -ne 1 ] && echo "Expected one DADA project scaffolding file, found ${#scaffolding_files[@]}." >&2 && exit 1
   package_source_file="${scaffolding_files[0]}"
   project_package_name="$(basename "$package_source_file" .yml)"
@@ -79,8 +88,6 @@ else
     exit 0
   fi
 fi
-
-branch_mapping_file="${automation_repo_dir}/assets/dada/config/imported-package-branches.yml"
 
 if ! yq e '.' "$package_source_file" >/dev/null 2>&1; then
   echo "Imported-package metadata is not valid YAML: ${package_source_file}" >&2
