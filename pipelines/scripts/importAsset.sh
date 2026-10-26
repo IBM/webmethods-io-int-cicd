@@ -203,8 +203,8 @@ function importAsset() {
                     --form ${formKey} --form ${overwriteKey} -u ${admin_user}:${admin_password})    
 
         if [[ $assetType = rest_api* || $assetType = soap_api* ]]; then
-          name=$(echo "$importedName" | jq '.output.message // empty')
-          success='"IMPORT_SUCCESS"'
+          name=$(echo "$importedName" | jq -r '.output.message // .output.status // empty')
+          success="IMPORT_SUCCESS"
           if [ "$name" == "$success" ];   then
             echod "Import Succeeded:" ${importedName}
           else

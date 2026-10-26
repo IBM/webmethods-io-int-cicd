@@ -17,3 +17,13 @@ class StaticValidationTests(WorkspaceTest):
     def test_test_runner_shell_script_parses(self):
         result = run(["bash", "-n", REPO_ROOT / "tests/run.sh"])
         self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_soap_import_accepts_both_success_response_shapes(self):
+        expected = ".output.message // .output.status // empty"
+        for relative_path in (
+            "pipelines/scripts/importAsset.sh",
+            "pipelines/scripts/importSoapAPI.sh",
+        ):
+            with self.subTest(script=relative_path):
+                content = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+                self.assertIn(expected, content)
