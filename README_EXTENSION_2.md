@@ -138,8 +138,8 @@ This section is for repository users and can be omitted when publishing the comm
 
 | Technical release | Source branch | Scope | Public release |
 | --- | --- | --- | --- |
-| `2026.10-dada` | `main` | DADA Phase 1 and imported-package promotion with the existing Gen1 authentication path | [DADA Phase 1](https://github.com/IBM/webmethods-io-int-cicd/releases/tag/2026.10-dada) |
-| `2026.10-gen1-gen2` | `feature/gen1-gen2-support` | DADA plus generation-aware Gen1/Gen2 authentication and additional export fixes | [DADA + Gen1/Gen2](https://github.com/IBM/webmethods-io-int-cicd/releases/tag/2026.10-gen1-gen2) |
+| `2026.10` | `main` | DADA Phase 1 and imported-package promotion with the existing Gen1 authentication path | [DADA Phase 1](https://github.com/IBM/webmethods-io-int-cicd/releases/tag/2026.10) |
+| `2026.10.01` | `feature/gen1-gen2-support` | DADA plus generation-aware Gen1/Gen2 authentication and additional export fixes | [DADA + Gen1/Gen2](https://github.com/IBM/webmethods-io-int-cicd/releases/tag/2026.10.01) |
 
 Release links become available after the tags and GitHub releases are published. These are separate snapshots, not a merge of the two branch tips. The Gen1/Gen2 snapshot adds configuration-response validation, configuration reuse, empty-package normalization, and package-API fallback during metadata export. The main snapshot uses a dedicated `prepareImportProject.sh` helper; the Gen1/Gen2 snapshot handles API-export detection in its import pipelines.
 
