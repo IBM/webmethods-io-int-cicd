@@ -1,7 +1,7 @@
 ##### October 2026 Release ########
 Technical releases:
-- 2026.10-dada (main): DADA Phase 1 with existing Gen1 authentication.
-- 2026.10-gen1-gen2 (feature/gen1-gen2-support): DADA plus Gen1/Gen2 authentication.
+- 2026.10 (main): DADA Phase 1 with existing Gen1 authentication.
+- 2026.10.01 (feature/gen1-gen2-support): DADA plus Gen1/Gen2 authentication.
 The configuration-export fixes in 3.d–3.f apply to the Gen1/Gen2 release.
 
 1. DADA (Develop Anywhere, Deploy Anywhere) Phase 1
