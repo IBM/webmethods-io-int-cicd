@@ -2,6 +2,10 @@
 
 This document extends the [original automation framework for webMethods.io Integration](https://community.ibm.com/community/user/integration/viewdocument/devops-for-webmethodsio-integratio?CommunityKey=82b75916-ed06-4a13-8eb6-0190da9f1bfa&tab=librarydocuments), highlighting new capabilities such as Integration API support, multi-asset promotion, integrated code review, and secret vault support. The framework is designed with GitHub repositories and Azure DevOps pipelines but can be adapted to other platforms.
 
+## October 2026 extension
+
+See [DADA Phase 1 and Gen1/Gen2 tenant support](README_EXTENSION_2.md) for the new capabilities, configuration, and release/tag links.
+
 ---
 ![alt text](./images/markdown/wmIO.gif)
 
